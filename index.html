@@ -1045,7 +1045,11 @@ async function submitRequest() {
     return;
   }
 
+  // Generate order number
+  const orderNum = await getNextOrderNumber();
+
   const req = {
+    orderNum,
     requestor, item, category, store,
     qty: parseInt(qty), cost, date, notes,
     urgency: urgencyVal,
@@ -1079,10 +1083,17 @@ function setFilter(val, btn) {
   renderList();
 }
 
+function getVisibleRequests() {
+  const managers = ['Ramon','Jose','Reidel'];
+  if (!currentUser || managers.includes(currentUser)) return requests;
+  return requests.filter(r => r.requestor === currentUser);
+}
+
 function renderList() {
+  const visible = getVisibleRequests();
   const filtered = currentFilter === 'all'
-    ? requests
-    : requests.filter(r => r.status === currentFilter);
+    ? visible
+    : visible.filter(r => r.status === currentFilter);
 
   const el = document.getElementById('req-list');
   if (!filtered.length) {
@@ -1093,7 +1104,7 @@ function renderList() {
   el.innerHTML = filtered.map(r => `
     <div class="req-card" onclick="openModal('${r.id}')">
       <div class="req-top">
-        <div class="req-name">${r.item}</div>
+        <div class="req-name">${r.item}${r.orderNum ? ` <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);font-weight:400;">#${r.orderNum}</span>` : ''}</div>
         <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
       </div>
       <div class="req-meta">
@@ -1125,17 +1136,18 @@ function formatDate(d) {
 // DASHBOARD
 // ============================================================
 function renderDash() {
-  const received = requests.filter(r => r.status === 'Recibido');
+  const received = visible.filter(r => r.status === 'Recibido');
   const total = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
-  const pending = requests.filter(r => r.status === 'Pendiente').length;
-  const approved = requests.filter(r => r.status === 'Aprobado').length;
+  const pending = visible.filter(r => r.status === 'Pendiente').length;
+  const approved = visible.filter(r => r.status === 'Aprobado').length;
   const now = new Date();
-  const monthCount = requests.filter(r => {
+  const monthCount = visible.filter(r => {
     const d = new Date(r.createdAt);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
-  const bought  = requests.filter(r => r.status === 'Comprado');
+  const visible  = getVisibleRequests();
+  const bought   = visible.filter(r => r.status === 'Comprado');
   const boughtCost = bought.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
   const recvCost   = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
 
@@ -1151,7 +1163,7 @@ function renderDash() {
 
   // Store breakdown
   const stores = {};
-  requests.forEach(r => { stores[r.store] = (stores[r.store]||0) + 1; });
+  visible.forEach(r => { stores[r.store] = (stores[r.store]||0) + 1; });
   const maxStore = Math.max(...Object.values(stores), 1);
   const storeColors = { 'Home Depot':'#F4811F', 'Supply Eléctrico':'#1565C0', 'Green House Supply':'#2E7D32', 'Grainger':'#CC0000', 'Lovet Irrigation':'#00838F', 'B & K':'#6A1B9A', 'Agri Services':'#2E7D32', 'Northern Tool':'#BF360C', 'Gintec':'#1565C0', 'Amazon':'#FF9900', 'Otra':'#78909C' };
   document.getElementById('dash-stores').innerHTML = Object.entries(stores)
@@ -1164,12 +1176,12 @@ function renderDash() {
       </div>`).join('') || '<p style="font-size:13px;color:var(--muted);padding:0 16px;">Sin datos aún</p>';
 
   // Bought list
-  const boughtList = requests.filter(r => r.status === 'Comprado').slice(0,5);
+  const boughtList = visible.filter(r => r.status === 'Comprado').slice(0,5);
   document.getElementById('dash-bought-list').innerHTML = boughtList.length
     ? boughtList.map(r => `
         <div class="req-card" onclick="openModal('${r.id}');switchPanel('list')">
           <div class="req-top">
-            <div class="req-name">${r.item}</div>
+            <div class="req-name">${r.item}${r.orderNum ? ` <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);font-weight:400;">#${r.orderNum}</span>` : ''}</div>
             <span class="status-badge s-bought">Comprado</span>
           </div>
           <div class="req-meta">
@@ -1185,12 +1197,12 @@ function renderDash() {
     : '<div style="padding:12px 16px;font-size:13px;color:var(--muted);">No hay órdenes compradas aún</div>';
 
   // Received list
-  const recvList = requests.filter(r => r.status === 'Recibido').slice(0,5);
+  const recvList = visible.filter(r => r.status === 'Recibido').slice(0,5);
   document.getElementById('dash-recv-list').innerHTML = recvList.length
     ? recvList.map(r => `
         <div class="req-card" onclick="openModal('${r.id}');switchPanel('list')">
           <div class="req-top">
-            <div class="req-name">${r.item}</div>
+            <div class="req-name">${r.item}${r.orderNum ? ` <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);font-weight:400;">#${r.orderNum}</span>` : ''}</div>
             <span class="status-badge s-received">Recibido</span>
           </div>
           <div class="req-meta">
@@ -1206,12 +1218,12 @@ function renderDash() {
     : '<div style="padding:12px 16px;font-size:13px;color:var(--muted);">No hay órdenes recibidas aún</div>';
 
   // Recent
-  const recent = requests.slice(0,4);
+  const recent = visible.slice(0,4);
   document.getElementById('dash-recent').innerHTML = recent.length
     ? recent.map(r => `
         <div class="req-card" onclick="openModal('${r.id}');switchPanel('list')">
           <div class="req-top">
-            <div class="req-name">${r.item}</div>
+            <div class="req-name">${r.item}${r.orderNum ? ` <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);font-weight:400;">#${r.orderNum}</span>` : ''}</div>
             <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
           </div>
           <div class="req-footer">
@@ -1234,6 +1246,7 @@ function openModal(id) {
   document.getElementById('modal-sub').textContent = `${r.store} · ${r.requestor}`;
 
   const fields = [
+    ['# Orden', r.orderNum || '—'],
     ['Solicitante', r.requestor],
     ['Categoría', r.category || '—'],
     ['Tienda', r.store],
@@ -1512,6 +1525,7 @@ function exportXLSX() {
   if (!requests.length) { showToast('No hay datos para exportar'); return; }
   const data = requests.map(r => ({
     'Fecha solicitud': r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US') : '',
+    '# Orden': r.orderNum || '',
     'Solicitante': r.requestor,
     'Artículo': r.item,
     'Categoría': r.category,
@@ -1658,7 +1672,9 @@ function doLogin(name) {
   try { localStorage.setItem('cf-current-user', name); } catch(e) {}
 
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('user-display').textContent = '👤 ' + name;
+  const managers = ['Ramon','Jose','Reidel'];
+  const role = managers.includes(name) ? '⭐ ' : '👤 ';
+  document.getElementById('user-display').textContent = role + name;
 
   const sel = document.getElementById('f-requestor');
   if (sel) sel.value = name;
@@ -1706,6 +1722,24 @@ function changeMyPin() {
 }
 
 
+async function getNextOrderNumber() {
+  try {
+    const counterRef = window._db.collection('meta').doc('counter');
+    // Use a transaction to safely increment
+    const result = await window._db.runTransaction(async (t) => {
+      const doc = await t.get(counterRef);
+      const next = doc.exists ? (doc.data().orderCount || 0) + 1 : 1;
+      t.set(counterRef, { orderCount: next });
+      return next;
+    });
+    return 'CF-' + String(result).padStart(4, '0');
+  } catch(e) {
+    // Fallback: use timestamp-based number
+    return 'CF-' + Date.now().toString().slice(-4);
+  }
+}
+
+
 // ---- Firebase CRUD (compat API) ----
 async function addRequest(req) {
   try {
@@ -1737,15 +1771,16 @@ async function deleteRequest(id) {
 function subscribeToRequests() {
   if (!window._db) { console.error('Firebase not ready'); return; }
   window._db.collection('requests')
-    .orderBy('createdAt', 'desc')
     .onSnapshot((snapshot) => {
-      requests = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+      requests = snapshot.docs
+        .map(d => ({ ...d.data(), id: d.id }))
+        .sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
       updatePendingDot();
       if (document.getElementById('panel-dash').classList.contains('active')) renderDash();
       if (document.getElementById('panel-list').classList.contains('active')) renderList();
     }, (err) => {
       console.error('Firestore error:', err);
-      showToast('Error de conexión con Firebase');
+      showToast('Error de conexión: ' + err.code);
     });
 }
 
