@@ -1739,7 +1739,7 @@ function subscribeToRequests() {
   window._db.collection('requests')
     .orderBy('createdAt', 'desc')
     .onSnapshot((snapshot) => {
-      requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      requests = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
       updatePendingDot();
       if (document.getElementById('panel-dash').classList.contains('active')) renderDash();
       if (document.getElementById('panel-list').classList.contains('active')) renderList();
