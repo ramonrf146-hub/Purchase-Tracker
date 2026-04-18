@@ -1668,6 +1668,42 @@ function changeMyPin() {
 }
 
 
+// ---- Firebase CRUD (compat API) ----
+async function addRequest(req) {
+  try {
+    const docRef = await window._reqCol.add(req);
+    req.id = docRef.id;
+  } catch(e) { console.error('addRequest:', e); showToast('Error al guardar: ' + e.message); }
+}
+
+async function updateRequest(id, changes) {
+  try {
+    await window._db.collection('requests').doc(id).update(changes);
+  } catch(e) { console.error('updateRequest:', e); showToast('Error al actualizar'); }
+}
+
+async function deleteRequest(id) {
+  try {
+    await window._db.collection('requests').doc(id).delete();
+  } catch(e) { console.error('deleteRequest:', e); showToast('Error al eliminar'); }
+}
+
+function subscribeToRequests() {
+  if (!window._db) { console.error('Firebase not ready'); return; }
+  window._db.collection('requests')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot((snapshot) => {
+      requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      updatePendingDot();
+      if (document.getElementById('panel-dash').classList.contains('active')) renderDash();
+      if (document.getElementById('panel-list').classList.contains('active')) renderList();
+    }, (err) => {
+      console.error('Firestore error:', err);
+      showToast('Error de conexión con Firebase');
+    });
+}
+
+
 // ============================================================
 // INIT
 // ============================================================
