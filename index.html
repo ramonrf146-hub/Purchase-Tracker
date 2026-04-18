@@ -1292,11 +1292,18 @@ function doAction(action) {
   document.getElementById('modal-overlay').classList.remove('open');
 
   if (action === 'delete') {
+    const idToDelete = currentRequestId;
     if (!confirm('¿Seguro que quieres eliminar esta solicitud?')) {
       pendingAction = null;
       return;
     }
-    executeAction(currentUser || 'Sistema');
+    pendingAction = null;
+    deleteRequest(idToDelete).then(() => {
+      showToast('Solicitud eliminada');
+    }).catch(e => {
+      console.error('Delete error:', e);
+      showToast('Error al eliminar: ' + e.message);
+    });
     return;
   }
 
