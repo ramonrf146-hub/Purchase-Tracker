@@ -1270,9 +1270,13 @@ function openModal(id) {
 
   // Actions based on current status and user role
   const actions = [];
-  const isManager = ['Ramon','Jose','Reidel'].includes(currentUser);
+  const MANAGERS = ['Ramon','Jose','Reidel'];
+  // Always re-read currentUser from localStorage in case it wasn't loaded yet
+  const activeUser = currentUser || localStorage.getItem('cf-current-user') || '';
+  const isManager = MANAGERS.includes(activeUser);
 
   if (isManager) {
+    // Managers get full control
     if (r.status === 'Pendiente') {
       actions.push(`<button class="action-btn btn-approve" onclick="doAction('Aprobado')">✓ Aprobar</button>`);
       actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
@@ -1292,12 +1296,20 @@ function openModal(id) {
     }
     actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Eliminar</button>`);
   } else {
-    // Regular users: can only delete their own pending requests
-    if (r.status === 'Pendiente' && r.requestor === currentUser) {
-      actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Cancelar solicitud</button>`);
+    // Regular users: Editar and Reabrir only on their own orders
+    if (r.requestor === activeUser) {
+      if (['Aprobado','Comprado','Recibido'].includes(r.status)) {
+        actions.push(`<button class="action-btn" style="background:var(--gold-pale);color:#7a5000;" onclick="openEditModal('${r.id}')">✏️ Editar</button>`);
+      }
+      if (r.status !== 'Pendiente') {
+        actions.push(`<button class="action-btn btn-approve" onclick="doAction('Pendiente')">↺ Reabrir</button>`);
+      }
+      if (r.status === 'Pendiente') {
+        actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Cancelar</button>`);
+      }
     }
     if (!actions.length) {
-      actions.push(`<div style="font-size:13px;color:var(--muted);padding:8px 0;">Solo lectura — contacta a un manager para cambios</div>`);
+      actions.push(`<div style="font-size:13px;color:var(--muted);padding:8px 0;text-align:center;">Solo lectura</div>`);
     }
   }
 
