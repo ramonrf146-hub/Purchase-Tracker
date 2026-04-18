@@ -1,6 +1,6 @@
 {
-  "name": "CF Purchase Tracker",
-  "short_name": "CF Purchases",
+  "name": "Purchase Tracker",
+  "short_name": "Purchases",
   "description": "Grupo de compras interno Costa Farms Maintenance",
   "start_url": "./index.html",
   "display": "standalone",
