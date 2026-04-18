@@ -377,17 +377,6 @@
     }
     .toast.show { opacity: 1; }
 
-    .approver-select-btn {
-      width: 100%; padding: 14px;
-      background: var(--cream); color: var(--navy);
-      border: 1px solid var(--border2); border-radius: var(--radius-sm);
-      font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
-      cursor: pointer; transition: all 0.15s; text-align: center;
-    }
-    .approver-select-btn:active, .approver-select-btn:hover {
-      background: var(--navy); color: white; border-color: var(--navy);
-    }
-
     .login-name-btn {
       width: 100%; padding: 14px 16px;
       background: rgba(255,255,255,0.07);
@@ -443,6 +432,73 @@
       background: #ef9a9a;
       border-color: #ef9a9a;
     }
+
+    .action-sheet-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(27,58,92,0.45);
+      z-index: 200; align-items: flex-end; justify-content: center;
+    }
+    .action-sheet-overlay.open { display: flex; }
+    .action-sheet {
+      background: var(--white);
+      width: 100%; max-width: 540px;
+      border-radius: 20px 20px 0 0;
+      padding: 16px 20px 36px;
+      animation: slideUp 0.22s cubic-bezier(0.34,1.2,0.64,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .action-sheet-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: var(--cream2); margin: 0 auto 16px;
+    }
+    .action-sheet-title {
+      font-size: 16px; font-weight: 600; color: var(--navy);
+      margin-bottom: 4px;
+    }
+    .action-sheet-item { font-size: 13px; color: var(--muted); }
+    .approver-dropdown-wrap {
+      position: relative;
+    }
+    .approver-dropdown {
+      width: 100%;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500;
+      color: var(--navy);
+      background: var(--cream);
+      border: 1.5px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 13px 40px 13px 14px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .approver-dropdown:focus { border-color: var(--gold); background: white; }
+    .approver-dropdown-arrow {
+      position: absolute; right: 14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px; color: var(--muted);
+      pointer-events: none;
+    }
+    .action-sheet-cancel {
+      flex: 1; padding: 13px;
+      background: var(--cream); color: var(--muted);
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+      cursor: pointer;
+    }
+    .action-sheet-confirm {
+      flex: 2; padding: 13px;
+      background: var(--navy); color: white;
+      border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .action-sheet-confirm:active { background: var(--navy-dark); }
   </style>
 </head>
 <body>
@@ -849,35 +905,56 @@
 </div>
 
 
-<!-- Unified Action Modal -->
-<div class="pin-overlay" id="action-overlay">
-  <div class="pin-box" style="max-width:380px;width:100%;">
+<!-- Unified Action Modal — bottom sheet -->
+<div class="action-sheet-overlay" id="action-overlay" onclick="closeActionModal(event)">
+  <div class="action-sheet" id="action-sheet">
+    <div class="action-sheet-handle"></div>
 
-    <!-- Step 1: Choose approver -->
+    <!-- Step 1: Approver dropdown -->
     <div id="step-approver">
-      <div class="pin-title" id="action-title">¿Quién autoriza?</div>
-      <div class="pin-sub" id="action-sub">Selecciona tu nombre para continuar</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
-        <button class="approver-select-btn" onclick="selectApprover('Ramon')">Ramon</button>
-        <button class="approver-select-btn" onclick="selectApprover('Jose')">Jose</button>
-        <button class="approver-select-btn" onclick="selectApprover('Reidel')">Reidel</button>
+      <div class="action-sheet-title" id="action-title">Confirmar acción</div>
+      <div class="action-sheet-item" id="action-sub" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+      <label style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Autorizado por</label>
+      <div class="approver-dropdown-wrap">
+        <select id="approver-select" class="approver-dropdown">
+          <option value="">Selecciona tu nombre...</option>
+          <option value="Ramon">Ramon</option>
+          <option value="Jose">Jose</option>
+          <option value="Reidel">Reidel</option>
+        </select>
+        <div class="approver-dropdown-arrow">▾</div>
       </div>
-      <button class="pin-cancel" style="width:100%" onclick="closeActionModal()">Cancelar</button>
+
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="action-sheet-cancel" onclick="closeActionModal()">Cancelar</button>
+        <button class="action-sheet-confirm" onclick="confirmApprover()">Confirmar</button>
+      </div>
     </div>
 
-    <!-- Step 2: Who received (only for Recibido) -->
+    <!-- Step 2: Received by (only for Recibido) -->
     <div id="step-received" style="display:none;">
-      <div class="pin-title">¿Quién recibió el producto?</div>
-      <div class="pin-sub" id="received-item-name"></div>
-      <input type="text" class="pin-input"
-        id="received-input"
-        style="font-size:16px;letter-spacing:0.02em;text-align:left;padding-left:14px;margin:16px 0 12px;"
-        placeholder="Nombre de quien recibió"
-        list="received-names-list">
-      <datalist id="received-names-list"></datalist>
-      <div class="pin-btn-row">
-        <button class="pin-cancel" onclick="closeActionModal()">Cancelar</button>
-        <button class="pin-confirm" onclick="confirmReceived()">Confirmar</button>
+      <div class="action-sheet-title">¿Quién recibió el producto?</div>
+      <div class="action-sheet-item" id="received-item-name" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+      <label style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Recibido por</label>
+      <div class="approver-dropdown-wrap">
+        <select id="received-select" class="approver-dropdown">
+          <option value="">Selecciona un nombre...</option>
+          <option>Ramon</option>
+          <option>Jose</option>
+          <option>Rolando</option>
+          <option>Pedro</option>
+          <option>Deurys</option>
+          <option>Wilson</option>
+          <option>Reidel</option>
+        </select>
+        <div class="approver-dropdown-arrow">▾</div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="action-sheet-cancel" onclick="closeActionModal()">Cancelar</button>
+        <button class="action-sheet-confirm" onclick="confirmReceived()">Confirmar</button>
       </div>
     </div>
 
@@ -1224,30 +1301,32 @@ function openActionModal() {
     'Pendiente': 'Reabrir solicitud',
     'delete': 'Eliminar solicitud'
   };
-  document.getElementById('action-title').textContent = actionLabels[pendingAction] || '¿Quién autoriza?';
+  document.getElementById('action-title').textContent = actionLabels[pendingAction] || 'Confirmar acción';
   document.getElementById('action-sub').textContent = r ? r.item : '';
+  document.getElementById('approver-select').value = currentUser && AUTHORIZED_APPROVERS.includes(currentUser) ? currentUser : '';
   document.getElementById('step-approver').style.display = 'block';
   document.getElementById('step-received').style.display = 'none';
   document.getElementById('action-overlay').classList.add('open');
 }
 
-function closeActionModal() {
+function closeActionModal(e) {
+  if (e && e.target !== document.getElementById('action-overlay')) return;
   document.getElementById('action-overlay').classList.remove('open');
   pendingAction = null;
   pendingApprover = null;
 }
 
-function selectApprover(name) {
+function confirmApprover() {
+  const name = document.getElementById('approver-select').value;
+  if (!name) { showToast('Selecciona tu nombre'); return; }
   pendingApprover = name;
+
   if (pendingAction === 'Recibido') {
-    // Show step 2: received-by input
     const r = requests.find(x => x.id === currentRequestId);
     document.getElementById('received-item-name').textContent = r ? r.item : '';
-    document.getElementById('received-input').value = '';
-    document.getElementById('received-names-list').innerHTML = approvers.map(n => `<option value="${n}">`).join('');
+    document.getElementById('received-select').value = currentUser || '';
     document.getElementById('step-approver').style.display = 'none';
     document.getElementById('step-received').style.display = 'block';
-    setTimeout(() => document.getElementById('received-input').focus(), 100);
   } else {
     document.getElementById('action-overlay').classList.remove('open');
     executeAction(name);
@@ -1255,19 +1334,12 @@ function selectApprover(name) {
 }
 
 function confirmReceived() {
-  const name = document.getElementById('received-input').value.trim();
-  if (!name) {
-    document.getElementById('received-input').style.borderColor = 'var(--red-txt)';
-    return;
-  }
+  const name = document.getElementById('received-select').value;
+  if (!name) { showToast('Selecciona quién recibió'); return; }
   document.getElementById('action-overlay').classList.remove('open');
   executeAction(pendingApprover, name);
   pendingApprover = null;
 }
-
-document.getElementById('received-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') confirmReceived();
-});
 
 // ============================================================
 // PIN
