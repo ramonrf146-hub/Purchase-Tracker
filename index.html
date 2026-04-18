@@ -1268,26 +1268,38 @@ function openModal(id) {
     `<div class="modal-field"><span class="modal-field-label">${l}</span><span class="modal-field-value">${v}</span></div>`
   ).join('');
 
-  // Actions based on current status
+  // Actions based on current status and user role
   const actions = [];
-  if (r.status === 'Pendiente') {
-    actions.push(`<button class="action-btn btn-approve" onclick="doAction('Aprobado')">✓ Aprobar</button>`);
-    actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
+  const isManager = ['Ramon','Jose','Reidel'].includes(currentUser);
+
+  if (isManager) {
+    if (r.status === 'Pendiente') {
+      actions.push(`<button class="action-btn btn-approve" onclick="doAction('Aprobado')">✓ Aprobar</button>`);
+      actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
+    }
+    if (r.status === 'Aprobado') {
+      actions.push(`<button class="action-btn btn-buy" onclick="doAction('Comprado')">🛒 Comprado</button>`);
+      actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
+    }
+    if (r.status === 'Comprado') {
+      actions.push(`<button class="action-btn btn-receive" onclick="doAction('Recibido')">📦 Recibido</button>`);
+    }
+    if (['Aprobado','Comprado','Recibido'].includes(r.status)) {
+      actions.push(`<button class="action-btn" style="background:var(--gold-pale);color:#7a5000;" onclick="openEditModal('${r.id}')">✏️ Editar</button>`);
+    }
+    if (r.status !== 'Pendiente') {
+      actions.push(`<button class="action-btn btn-approve" onclick="doAction('Pendiente')">↺ Reabrir</button>`);
+    }
+    actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Eliminar</button>`);
+  } else {
+    // Regular users: can only delete their own pending requests
+    if (r.status === 'Pendiente' && r.requestor === currentUser) {
+      actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Cancelar solicitud</button>`);
+    }
+    if (!actions.length) {
+      actions.push(`<div style="font-size:13px;color:var(--muted);padding:8px 0;">Solo lectura — contacta a un manager para cambios</div>`);
+    }
   }
-  if (r.status === 'Aprobado') {
-    actions.push(`<button class="action-btn btn-buy" onclick="doAction('Comprado')">🛒 Comprado</button>`);
-    actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
-  }
-  if (r.status === 'Comprado') {
-    actions.push(`<button class="action-btn btn-receive" onclick="doAction('Recibido')">📦 Recibido</button>`);
-  }
-  if (['Aprobado','Comprado','Recibido'].includes(r.status)) {
-    actions.push(`<button class="action-btn" style="background:var(--gold-pale);color:#7a5000;" onclick="openEditModal('${r.id}')">✏️ Editar</button>`);
-  }
-  if (r.status !== 'Pendiente') {
-    actions.push(`<button class="action-btn btn-approve" onclick="doAction('Pendiente')">↺ Reabrir</button>`);
-  }
-  actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Eliminar</button>`);
 
   document.getElementById('modal-actions').innerHTML = actions.join('');
   document.getElementById('modal-overlay').classList.add('open');
