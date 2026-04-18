@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1B3A5C">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CF Purchases">
+  <title>Purchase Tracker · Costa Farms</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --navy:      #1B3A5C;
+      --navy-dark: #122740;
+      --navy-mid:  #2a4f78;
+      --gold:      #E8A020;
+      --gold-lt:   #F5B842;
+      --gold-pale: #FDF3DC;
+      --cream:     #F7F2E8;
+      --cream2:    #EDE7D8;
+      --green:     #2E7D32;
+      --green-bg:  #E8F5E9;
+      --blue-bg:   #E3F2FD;
+      --blue-txt:  #1565C0;
+      --amber-bg:  #FFF8E1;
+      --amber-txt: #E65100;
+      --red-bg:    #FFEBEE;
+      --red-txt:   #C62828;
+      --gray-bg:   #F5F5F5;
+      --gray-txt:  #616161;
+      --text:      #1B3A5C;
+      --muted:     #6B7F94;
+      --border:    rgba(27,58,92,0.12);
+      --border2:   rgba(27,58,92,0.22);
+      --white:     #FFFFFF;
+      --shadow:    0 2px 12px rgba(27,58,92,0.09);
+      --shadow-md: 0 4px 20px rgba(27,58,92,0.13);
+      --radius:    14px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 10% 10%, rgba(232,160,32,0.05) 0%, transparent 50%),
+                  radial-gradient(circle at 90% 90%, rgba(46,125,50,0.04) 0%, transparent 50%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .app { position: relative; z-index: 1; max-width: 540px; margin: 0 auto; padding-bottom: 90px; }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--navy);
+      padding: 48px 20px 28px;
+      position: relative; overflow: hidden;
+    }
+    .header::after {
+      content: ''; position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 22px; background: var(--cream);
+      border-radius: 22px 22px 0 0;
+    }
+    .header::before {
+      content: ''; position: absolute;
+      top: -80px; right: -80px;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      background: rgba(232,160,32,0.09);
+      pointer-events: none;
+    }
+    .header-inner { position: relative; z-index: 1; }
+    .brand-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .logo-badge {
+      background: var(--gold); border-radius: 10px;
+      padding: 5px 10px; display: inline-flex;
+      flex-direction: column; align-items: center;
+    }
+    .logo-costa { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 700; font-style: italic; color: white; line-height: 1; }
+    .logo-farms { font-family: 'DM Sans', sans-serif; font-size: 7px; font-weight: 600; letter-spacing: 0.2em; color: var(--navy); text-transform: uppercase; margin-top: 1px; }
+    .header-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: white; line-height: 1.15; }
+    .header-title span { color: var(--gold-lt); }
+    .header-sub { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+
+    /* ---- Bottom Nav ---- */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%; max-width: 540px;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-btn {
+      flex: 1; padding: 12px 4px 10px;
+      border: none; background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 500;
+      color: var(--muted); cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      transition: color 0.15s;
+    }
+    .nav-btn.active { color: var(--navy); }
+    .nav-btn svg { width: 22px; height: 22px; }
+    .nav-dot {
+      position: absolute; top: 8px; right: calc(50% - 18px);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gold); display: none;
+    }
+    .nav-btn-wrap { flex: 1; position: relative; display: flex; justify-content: center; }
+
+    /* ---- Panels ---- */
+    .panel { display: none; padding-top: 8px; }
+    .panel.active { display: block; }
+
+    /* ---- Dashboard ---- */
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; margin: 16px 16px 12px;
+    }
+    .stat-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .stat-card.accent { background: var(--navy); border-color: transparent; }
+    .stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .stat-card.accent .stat-label { color: rgba(255,255,255,0.55); }
+    .stat-value { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 500; color: var(--navy); }
+    .stat-card.accent .stat-value { color: var(--gold-lt); }
+    .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .stat-card.accent .stat-sub { color: rgba(255,255,255,0.4); }
+
+    .section-title {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted);
+      margin: 0 16px 10px; padding-top: 4px;
+    }
+
+    /* Store breakdown */
+    .store-bar { margin: 0 16px 14px; }
+    .store-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .store-name { font-size: 12px; font-weight: 500; color: var(--text); min-width: 120px; }
+    .store-track { flex: 1; height: 6px; background: var(--cream2); border-radius: 3px; overflow: hidden; }
+    .store-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+    .store-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); min-width: 24px; text-align: right; }
+
+    /* ---- Request Form ---- */
+    .form-card {
+      margin: 12px 16px; background: var(--white);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+    }
+    .form-card-title { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 14px; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .field input, .field select, .field textarea {
+      width: 100%; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      color: var(--text); background: var(--cream);
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      padding: 10px 12px; outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none; appearance: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--gold); background: white; }
+    .field textarea { resize: vertical; min-height: 70px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .urgency-row { display: flex; gap: 8px; }
+    .urgency-btn {
+      flex: 1; padding: 8px 4px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border2); background: var(--cream);
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      color: var(--muted); cursor: pointer; text-align: center;
+      transition: all 0.15s;
+    }
+    .urgency-btn.sel-normal { background: var(--green-bg); color: var(--green); border-color: rgba(46,125,50,0.3); }
+    .urgency-btn.sel-urgent { background: var(--amber-bg); color: var(--amber-txt); border-color: rgba(230,81,0,0.3); }
+    .urgency-btn.sel-critical { background: var(--red-bg); color: var(--red-txt); border-color: rgba(198,40,40,0.3); }
+
+    .submit-btn {
+      width: 100%; padding: 14px;
+      background: var(--navy); color: white;
+      border: none; border-radius: var(--radius);
+      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 6px;
+      transition: background 0.15s;
+    }
+    .submit-btn:active { background: var(--navy-dark); }
+
+    /* ---- List ---- */
+    .filter-bar {
+      display: flex; gap: 6px; padding: 8px 16px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex-shrink: 0; padding: 6px 12px;
+      border-radius: 20px; border: 1px solid var(--border2);
+      background: var(--white); font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500; color: var(--muted);
+      cursor: pointer; white-space: nowrap; transition: all 0.15s;
+    }
+    .filter-chip.active { background: var(--navy); color: white; border-color: transparent; }
+
+    .export-btn {
+      margin: 0 16px 10px; width: calc(100% - 32px);
+      padding: 11px; border-radius: var(--radius);
+      border: 1px solid var(--border2); background: var(--white);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--navy); cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 8px; box-shadow: var(--shadow);
+    }
+
+    .req-card {
+      margin: 0 16px 10px; background: var(--white);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 16px; box-shadow: var(--shadow);
+      cursor: pointer; transition: box-shadow 0.15s;
+    }
+    .req-card:active { box-shadow: var(--shadow-md); }
+    .req-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .req-name { font-size: 14px; font-weight: 600; color: var(--navy); flex: 1; }
+    .status-badge {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+      padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+    }
+    .s-pending  { background: var(--amber-bg); color: var(--amber-txt); }
+    .s-approved { background: var(--green-bg);  color: var(--green); }
+    .s-bought   { background: var(--blue-bg);   color: var(--blue-txt); }
+    .s-received { background: #E8F5E9; color: #1B5E20; }
+    .s-rejected { background: var(--red-bg);    color: var(--red-txt); }
+
+    .req-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .req-tag {
+      font-size: 11px; color: var(--muted);
+      background: var(--cream); border-radius: 4px;
+      padding: 2px 7px; border: 1px solid var(--border);
+    }
+    .req-footer { display: flex; justify-content: space-between; align-items: center; }
+    .req-requestor { font-size: 11px; font-weight: 500; color: var(--navy); }
+    .req-cost { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--navy); }
+    .req-date { font-size: 11px; color: var(--muted); }
+
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--muted); font-size: 14px;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+    /* ---- Detail Modal ---- */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(27,58,92,0.5); z-index: 200;
+      align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--white); width: 100%; max-width: 540px;
+      border-radius: 20px 20px 0 0; padding: 20px 20px 40px;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .modal-handle { width: 40px; height: 4px; background: var(--cream2); border-radius: 2px; margin: 0 auto 16px; }
+    .modal-title { font-size: 17px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+    .modal-field { margin-bottom: 10px; display: flex; gap: 10px; }
+    .modal-field-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); min-width: 90px; padding-top: 1px; }
+    .modal-field-value { font-size: 13px; color: var(--text); flex: 1; }
+    .modal-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .action-btn {
+      flex: 1; min-width: 80px; padding: 10px 8px;
+      border-radius: var(--radius-sm); border: none;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .action-btn:active { opacity: 0.75; }
+    .btn-approve  { background: var(--green-bg); color: var(--green); }
+    .btn-buy      { background: var(--blue-bg);  color: var(--blue-txt); }
+    .btn-receive  { background: #E8F5E9; color: #1B5E20; }
+    .btn-reject   { background: var(--red-bg);   color: var(--red-txt); }
+    .btn-delete   { background: var(--gray-bg);  color: var(--gray-txt); }
+
+    /* Settings */
+    .settings-card {
+      margin: 12px 16px; background: var(--white);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+    }
+    .settings-title { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 14px; }
+    .approver-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .approver-row:last-child { border-bottom: none; }
+    .approver-name { flex: 1; font-size: 14px; font-weight: 500; color: var(--text); }
+    .approver-role { font-size: 11px; color: var(--muted); }
+    .remove-btn {
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--border2); background: var(--red-bg);
+      color: var(--red-txt); font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .add-approver-row { display: flex; gap: 8px; margin-top: 12px; }
+    .add-approver-row input {
+      flex: 1; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      color: var(--text); background: var(--cream);
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      padding: 9px 12px; outline: none;
+    }
+    .add-approver-row input:focus { border-color: var(--gold); background: white; }
+    .add-btn {
+      padding: 9px 16px; background: var(--navy); color: white;
+      border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .pin-setting-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+    .pin-setting-row input {
+      flex: 1; font-family: 'DM Mono', monospace; font-size: 18px;
+      text-align: center; letter-spacing: 0.2em;
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      padding: 9px; color: var(--navy); background: var(--cream); outline: none;
+    }
+    .save-pin-btn {
+      padding: 9px 16px; background: var(--green); color: white;
+      border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--navy); color: white; padding: 10px 20px;
+      border-radius: 20px; font-size: 13px; font-weight: 500;
+      z-index: 400; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    .approver-select-btn {
+      width: 100%; padding: 14px;
+      background: var(--cream); color: var(--navy);
+      border: 1px solid var(--border2); border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; text-align: center;
+    }
+    .approver-select-btn:active, .approver-select-btn:hover {
+      background: var(--navy); color: white; border-color: var(--navy);
+    }
+
+    .login-name-btn {
+      width: 100%; padding: 14px 16px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 600;
+      color: white; cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .login-name-btn::before {
+      content: '';
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #E8A020; flex-shrink: 0;
+    }
+    .login-name-btn:active {
+      background: rgba(232,160,32,0.2);
+      border-color: rgba(232,160,32,0.4);
+    }
+    #current-user-badge {
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .keypad-btn {
+      padding: 16px 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 20px; font-weight: 600;
+      color: white; cursor: pointer;
+      transition: all 0.1s;
+    }
+    .keypad-btn:active {
+      background: rgba(232,160,32,0.3);
+      border-color: rgba(232,160,32,0.5);
+      transform: scale(0.95);
+    }
+    .pin-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .pin-dot.filled {
+      background: #E8A020;
+      border-color: #E8A020;
+    }
+    .pin-dot.error {
+      background: #ef9a9a;
+      border-color: #ef9a9a;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="login-screen" style="
+  position:fixed;inset:0;z-index:1000;
+  background:#1B3A5C;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:32px 24px;
+">
+  <!-- Background circle -->
+  <div style="position:absolute;top:-80px;right:-80px;width:280px;height:280px;border-radius:50%;background:rgba(232,160,32,0.1);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;background:rgba(46,125,50,0.08);pointer-events:none;"></div>
+
+  <div style="position:relative;z-index:1;width:100%;max-width:340px;">
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="display:inline-flex;flex-direction:column;align-items:center;background:#E8A020;border-radius:14px;padding:10px 20px;margin-bottom:16px;">
+        <span style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;font-style:italic;color:white;line-height:1;">costa</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;letter-spacing:0.22em;color:#1B3A5C;text-transform:uppercase;margin-top:2px;">farms</span>
+      </div>
+      <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:white;line-height:1.2;">Purchase <span style="color:#F5B842;">Tracker</span></div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:6px;">Grupo de compras interno · Maintenance</div>
+    </div>
+
+    <!-- Step 1: Name selection -->
+    <div id="login-step-names">
+      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:14px;text-align:center;">¿Quién eres?</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="login-name-btn" onclick="selectLoginName('Ramon')">Ramon</button>
+          <button class="login-name-btn" onclick="selectLoginName('Jose')">Jose</button>
+          <button class="login-name-btn" onclick="selectLoginName('Rolando')">Rolando</button>
+          <button class="login-name-btn" onclick="selectLoginName('Pedro')">Pedro</button>
+          <button class="login-name-btn" onclick="selectLoginName('Deurys')">Deurys</button>
+          <button class="login-name-btn" onclick="selectLoginName('Wilson')">Wilson</button>
+          <button class="login-name-btn" onclick="selectLoginName('Reidel')">Reidel</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.25);text-align:center;margin-top:16px;">
+        Tu sesión se mantiene activa en este dispositivo
+      </div>
+    </div>
+
+    <!-- Step 2: PIN entry -->
+    <div id="login-step-pin" style="display:none;">
+      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div id="login-pin-avatar" style="width:56px;height:56px;border-radius:50%;background:#E8A020;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;color:#1B3A5C;"></div>
+          <div id="login-pin-name" style="font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;color:white;"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px;">Ingresa tu PIN de 4 dígitos</div>
+        </div>
+
+        <!-- PIN dots display -->
+        <div style="display:flex;justify-content:center;gap:16px;margin-bottom:24px;">
+          <div class="pin-dot" id="pd1"></div>
+          <div class="pin-dot" id="pd2"></div>
+          <div class="pin-dot" id="pd3"></div>
+          <div class="pin-dot" id="pd4"></div>
+        </div>
+
+        <!-- Error message -->
+        <div id="login-pin-error" style="display:none;text-align:center;font-size:12px;color:#ef9a9a;margin-bottom:12px;">PIN incorrecto. Intenta de nuevo.</div>
+
+        <!-- Numeric keypad -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <button class="keypad-btn" onclick="pinKey('1')">1</button>
+          <button class="keypad-btn" onclick="pinKey('2')">2</button>
+          <button class="keypad-btn" onclick="pinKey('3')">3</button>
+          <button class="keypad-btn" onclick="pinKey('4')">4</button>
+          <button class="keypad-btn" onclick="pinKey('5')">5</button>
+          <button class="keypad-btn" onclick="pinKey('6')">6</button>
+          <button class="keypad-btn" onclick="pinKey('7')">7</button>
+          <button class="keypad-btn" onclick="pinKey('8')">8</button>
+          <button class="keypad-btn" onclick="pinKey('9')">9</button>
+          <button class="keypad-btn" onclick="backToNames()" style="font-size:13px;color:rgba(255,255,255,0.5);">← Volver</button>
+          <button class="keypad-btn" onclick="pinKey('0')">0</button>
+          <button class="keypad-btn" onclick="pinBackspace()" style="font-size:18px;">⌫</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="brand-row">
+        <div class="logo-badge">
+          <div class="logo-costa">costa</div>
+          <div class="logo-farms">farms</div>
+        </div>
+        <div id="current-user-badge">
+        <span id="user-display" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:rgba(255,255,255,0.9);background:rgba(232,160,32,0.2);border:1px solid rgba(232,160,32,0.3);border-radius:20px;padding:5px 12px;"></span>
+        <button onclick="logout()" style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 10px;cursor:pointer;">Salir</button>
+      </div>
+      </div>
+      <div class="header-title">Purchase <span>Tracker</span></div>
+      <div class="header-sub">Grupo de compras interno · Maintenance</div>
+    </div>
+  </div>
+
+  <!-- ===== PANEL: DASHBOARD ===== -->
+  <div class="panel active" id="panel-dash">
+    <div class="stats-grid">
+      <div class="stat-card accent">
+        <div class="stat-label">Total gastado</div>
+        <div class="stat-value" id="dash-total">$0</div>
+        <div class="stat-sub" id="dash-received">0 recibidos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pendientes</div>
+        <div class="stat-value" id="dash-pending">0</div>
+        <div class="stat-sub">por aprobar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Aprobadas</div>
+        <div class="stat-value" id="dash-approved">0</div>
+        <div class="stat-sub">listas p/ comprar</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Este mes</div>
+        <div class="stat-value" id="dash-month">0</div>
+        <div class="stat-sub">solicitudes</div>
+      </div>
+    </div>
+
+    <div class="section-title">Por tienda</div>
+    <div class="store-bar" id="dash-stores"></div>
+
+    <div class="section-title">Recientes</div>
+    <div id="dash-recent"></div>
+  </div>
+
+  <!-- ===== PANEL: NUEVA SOLICITUD ===== -->
+  <div class="panel" id="panel-new">
+    <div class="form-card">
+      <div class="form-card-title">Nueva solicitud de compra</div>
+
+      <div class="field">
+        <label>Solicitante (Requestor)</label>
+        <select id="f-requestor">
+          <option value="">Seleccionar...</option>
+          <option>Ramon</option>
+          <option>Jose</option>
+          <option>Rolando</option>
+          <option>Pedro</option>
+          <option>Deurys</option>
+          <option>Wilson</option>
+          <option>Reidel</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Artículo / Descripción</label>
+        <input type="text" id="f-item" placeholder="Ej: Extension cord 100ft, Fertilizer pump...">
+      </div>
+
+      <div class="field">
+        <label>Categoría</label>
+        <select id="f-category">
+          <option value="">Seleccionar...</option>
+          <option>Herramientas y equipos</option>
+          <option>Materiales de mantenimiento</option>
+          <option>Partes y repuestos</option>
+          <option>Insumos de oficina</option>
+          <option>Eléctrico / Electrónico</option>
+          <option>Greenhouse / Invernadero</option>
+          <option>Otro</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Tienda</label>
+          <select id="f-store">
+            <option value="">Sin definir (opcional)</option>
+            <option>Home Depot</option>
+            <option>Supply Eléctrico</option>
+            <option>Green House Supply</option>
+            <option>Grainger</option>
+            <option>Lovet Irrigation</option>
+            <option>B &amp; K</option>
+            <option>Agri Services</option>
+            <option>Northern Tool</option>
+            <option>Gintec</option>
+            <option>Amazon</option>
+            <option>Otra</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Cantidad</label>
+          <input type="number" id="f-qty" placeholder="1" min="1">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Costo estimado ($) <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted);">— opcional</span></label>
+          <input type="number" id="f-cost" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Fecha necesaria</label>
+          <input type="date" id="f-date">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Urgencia</label>
+        <div class="urgency-row">
+          <button class="urgency-btn sel-normal" onclick="setUrgency('Normal',this)">Normal</button>
+          <button class="urgency-btn" onclick="setUrgency('Urgente',this)">Urgente</button>
+          <button class="urgency-btn" onclick="setUrgency('Crítico',this)">Crítico</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Notas adicionales</label>
+        <textarea id="f-notes" placeholder="Número de parte, especificaciones, dónde se va a usar..."></textarea>
+      </div>
+
+      <button class="submit-btn" onclick="submitRequest()">Enviar solicitud</button>
+    </div>
+  </div>
+
+  <!-- ===== PANEL: LISTA ===== -->
+  <div class="panel" id="panel-list">
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-chip active" onclick="setFilter('all',this)">Todas</button>
+      <button class="filter-chip" onclick="setFilter('Pendiente',this)">Pendiente</button>
+      <button class="filter-chip" onclick="setFilter('Aprobado',this)">Aprobado</button>
+      <button class="filter-chip" onclick="setFilter('Comprado',this)">Comprado</button>
+      <button class="filter-chip" onclick="setFilter('Recibido',this)">Recibido</button>
+      <button class="filter-chip" onclick="setFilter('Rechazado',this)">Rechazado</button>
+    </div>
+    <button class="export-btn" onclick="exportXLSX()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exportar a Excel
+    </button>
+    <div id="req-list"></div>
+  </div>
+
+  <!-- ===== PANEL: SETTINGS ===== -->
+  <div class="panel" id="panel-settings">
+    <div class="settings-card">
+      <div class="settings-title">Aprobadores autorizados</div>
+      <div id="approvers-list-ui"></div>
+      <div class="add-approver-row">
+        <input type="text" id="new-approver-input" placeholder="Nombre del aprobador">
+        <button class="add-btn" onclick="addApprover()">+ Agregar</button>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-title">Aprobadores autorizados</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:4px;">Solo estas personas pueden aprobar, rechazar o cambiar el estado de una solicitud:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <span style="background:var(--navy);color:white;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;">Ramon</span>
+        <span style="background:var(--navy);color:white;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;">Jose</span>
+        <span style="background:var(--navy);color:white;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;">Reidel</span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-title">Cambiar mi PIN</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Cambia tu PIN personal de 4 dígitos.</p>
+      <div class="field">
+        <label>PIN actual</label>
+        <input type="password" id="pin-current" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:0.3em;text-align:center;">
+      </div>
+      <div class="field">
+        <label>PIN nuevo</label>
+        <input type="password" id="pin-new" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:0.3em;text-align:center;">
+      </div>
+      <div class="field">
+        <label>Confirmar PIN nuevo</label>
+        <input type="password" id="pin-confirm-input" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:0.3em;text-align:center;">
+      </div>
+      <button class="submit-btn" style="margin-top:4px;" onclick="changeMyPin()">Cambiar PIN</button>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-title">Acerca de</div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6;">CF Purchase Tracker v1.0<br>Costa Farms Maintenance Dept.<br>Desarrollado para uso interno.</p>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <div class="nav-btn-wrap">
+    <button class="nav-btn active" id="nav-dash" onclick="switchPanel('dash')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+  </div>
+  <div class="nav-btn-wrap">
+    <button class="nav-btn" id="nav-new" onclick="switchPanel('new')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Nueva
+    </button>
+  </div>
+  <div class="nav-btn-wrap">
+    <button class="nav-btn" id="nav-list" onclick="switchPanel('list')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Solicitudes
+      <span class="nav-dot" id="pending-dot"></span>
+    </button>
+  </div>
+  <div class="nav-btn-wrap">
+    <button class="nav-btn" id="nav-settings" onclick="switchPanel('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Ajustes
+    </button>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div id="modal-fields"></div>
+    <hr class="modal-divider">
+    <div class="action-row" id="modal-actions"></div>
+  </div>
+</div>
+
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-overlay" onclick="closeEditModal(event)">
+  <div class="modal" id="edit-modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Editar solicitud</div>
+    <div class="modal-sub" id="edit-modal-sub"></div>
+
+    <div style="margin-top:14px;">
+      <div class="field">
+        <label>Tienda</label>
+        <select id="edit-store">
+          <option value="">Sin definir</option>
+          <option>Home Depot</option>
+          <option>Supply Eléctrico</option>
+          <option>Green House Supply</option>
+          <option>Grainger</option>
+          <option>Lovet Irrigation</option>
+          <option>B &amp; K</option>
+          <option>Agri Services</option>
+          <option>Northern Tool</option>
+          <option>Gintec</option>
+          <option>Amazon</option>
+          <option>Otra</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Costo real ($)</label>
+          <input type="number" id="edit-cost" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Cantidad</label>
+          <input type="number" id="edit-qty" placeholder="1" min="1">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Fecha estimada de llegada</label>
+        <input type="date" id="edit-eta">
+      </div>
+
+      <div class="field">
+        <label>Notas adicionales</label>
+        <textarea id="edit-notes" placeholder="Actualiza las notas..."></textarea>
+      </div>
+
+      <button class="submit-btn" onclick="saveEdit()">Guardar cambios</button>
+      <button onclick="closeEditModal()" style="width:100%;padding:12px;margin-top:8px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--muted);cursor:pointer;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Unified Action Modal -->
+<div class="pin-overlay" id="action-overlay">
+  <div class="pin-box" style="max-width:380px;width:100%;">
+
+    <!-- Step 1: Choose approver -->
+    <div id="step-approver">
+      <div class="pin-title" id="action-title">¿Quién autoriza?</div>
+      <div class="pin-sub" id="action-sub">Selecciona tu nombre para continuar</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+        <button class="approver-select-btn" onclick="selectApprover('Ramon')">Ramon</button>
+        <button class="approver-select-btn" onclick="selectApprover('Jose')">Jose</button>
+        <button class="approver-select-btn" onclick="selectApprover('Reidel')">Reidel</button>
+      </div>
+      <button class="pin-cancel" style="width:100%" onclick="closeActionModal()">Cancelar</button>
+    </div>
+
+    <!-- Step 2: Who received (only for Recibido) -->
+    <div id="step-received" style="display:none;">
+      <div class="pin-title">¿Quién recibió el producto?</div>
+      <div class="pin-sub" id="received-item-name"></div>
+      <input type="text" class="pin-input"
+        id="received-input"
+        style="font-size:16px;letter-spacing:0.02em;text-align:left;padding-left:14px;margin:16px 0 12px;"
+        placeholder="Nombre de quien recibió"
+        list="received-names-list">
+      <datalist id="received-names-list"></datalist>
+      <div class="pin-btn-row">
+        <button class="pin-cancel" onclick="closeActionModal()">Cancelar</button>
+        <button class="pin-confirm" onclick="confirmReceived()">Confirmar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let requests = [];
+let currentUser = null;
+let approvers = [];
+const APPROVER_NAMES = ['Ramon','Jose','Reidel'];
+let currentFilter = 'all';
+let currentRequestId = null;
+let pendingAction = null;
+let pendingApprover = null;
+let urgencyVal = 'Normal';
+
+// ============================================================
+// STORAGE
+// ============================================================
+async function loadData() {
+  try {
+    const r = await window.storage.get('cf-requests');
+    if (r) requests = JSON.parse(r.value);
+  } catch(e) { requests = []; }
+  try {
+    const a = await window.storage.get('cf-approvers');
+    if (a) approvers = JSON.parse(a.value);
+  } catch(e) { approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel']; }
+  // PIN removed
+}
+
+async function saveRequests() {
+  try { await window.storage.set('cf-requests', JSON.stringify(requests)); } catch(e) {}
+}
+async function saveApprovers() {
+  try { await window.storage.set('cf-approvers', JSON.stringify(approvers)); } catch(e) {}
+}
+
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchPanel(name) {
+  ['dash','new','list','settings'].forEach(p => {
+    document.getElementById('panel-'+p).classList.toggle('active', p === name);
+    document.getElementById('nav-'+p).classList.toggle('active', p === name);
+  });
+  if (name === 'dash') renderDash();
+  if (name === 'list') renderList();
+  if (name === 'settings') renderSettings();
+}
+
+// ============================================================
+// FORM
+// ============================================================
+function setUrgency(val, btn) {
+  urgencyVal = val;
+  document.querySelectorAll('.urgency-btn').forEach(b => {
+    b.className = 'urgency-btn';
+  });
+  if (val === 'Normal')  btn.classList.add('sel-normal');
+  if (val === 'Urgente') btn.classList.add('sel-urgent');
+  if (val === 'Crítico') btn.classList.add('sel-critical');
+}
+
+function submitRequest() {
+  const requestor = document.getElementById('f-requestor').value.trim();
+  const item      = document.getElementById('f-item').value.trim();
+  const category  = document.getElementById('f-category').value;
+  const store     = document.getElementById('f-store').value;
+  const qty       = document.getElementById('f-qty').value || '1';
+  const cost      = parseFloat(document.getElementById('f-cost').value) || 0;
+  const date      = document.getElementById('f-date').value;
+  const notes     = document.getElementById('f-notes').value.trim();
+
+  if (!requestor || !item) {
+    showToast('Completa: Solicitante y Artículo');
+    return;
+  }
+
+  const req = {
+    id: Date.now().toString(),
+    requestor, item, category, store,
+    qty: parseInt(qty), cost, date, notes,
+    urgency: urgencyVal,
+    status: 'Pendiente',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  requests.unshift(req);
+  saveRequests();
+
+  // Reset form
+  ['f-requestor','f-item','f-qty','f-cost','f-date','f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-category').value = '';
+  document.getElementById('f-store').value = '';
+  setUrgency('Normal', document.querySelector('.urgency-btn'));
+
+  updatePendingDot();
+  showToast('Solicitud enviada');
+  switchPanel('list');
+}
+
+// ============================================================
+// RENDER LIST
+// ============================================================
+function setFilter(val, btn) {
+  currentFilter = val;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const filtered = currentFilter === 'all'
+    ? requests
+    : requests.filter(r => r.status === currentFilter);
+
+  const el = document.getElementById('req-list');
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div>No hay solicitudes aquí</div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(r => `
+    <div class="req-card" onclick="openModal('${r.id}')">
+      <div class="req-top">
+        <div class="req-name">${r.item}</div>
+        <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
+      </div>
+      <div class="req-meta">
+        <span class="req-tag">${r.store || 'Sin tienda'}</span>
+        ${r.category ? `<span class="req-tag">${r.category}</span>` : ''}
+        ${r.urgency !== 'Normal' ? `<span class="req-tag" style="color:${r.urgency==='Crítico'?'var(--red-txt)':'var(--amber-txt)'}">⚡ ${r.urgency}</span>` : ''}
+        ${r.qty > 1 ? `<span class="req-tag">x${r.qty}</span>` : ''}
+        ${r.receivedBy ? `<span class="req-tag" style="color:var(--green)">✓ ${r.receivedBy}</span>` : ''}
+      </div>
+      <div class="req-footer">
+        <span class="req-requestor">${r.requestor}</span>
+        ${r.eta ? `<span class="req-date" style="color:var(--green)">📦 ${formatDate(r.eta)}</span>` : (r.date ? `<span class="req-date">${formatDate(r.date)}</span>` : '')}
+        ${r.cost ? `<span class="req-cost">$${r.cost.toFixed(2)}</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function statusClass(s) {
+  return { Pendiente:'s-pending', Aprobado:'s-approved', Comprado:'s-bought', Recibido:'s-received', Rechazado:'s-rejected' }[s] || 's-pending';
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${m}/${day}/${y}`;
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDash() {
+  const received = requests.filter(r => r.status === 'Recibido');
+  const total = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
+  const pending = requests.filter(r => r.status === 'Pendiente').length;
+  const approved = requests.filter(r => r.status === 'Aprobado').length;
+  const now = new Date();
+  const monthCount = requests.filter(r => {
+    const d = new Date(r.createdAt);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  document.getElementById('dash-total').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('dash-received').textContent = received.length + ' recibidos';
+  document.getElementById('dash-pending').textContent = pending;
+  document.getElementById('dash-approved').textContent = approved;
+  document.getElementById('dash-month').textContent = monthCount;
+
+  // Store breakdown
+  const stores = {};
+  requests.forEach(r => { stores[r.store] = (stores[r.store]||0) + 1; });
+  const maxStore = Math.max(...Object.values(stores), 1);
+  const storeColors = { 'Home Depot':'#F4811F', 'Supply Eléctrico':'#1565C0', 'Green House Supply':'#2E7D32', 'Grainger':'#CC0000', 'Lovet Irrigation':'#00838F', 'B & K':'#6A1B9A', 'Agri Services':'#2E7D32', 'Northern Tool':'#BF360C', 'Gintec':'#1565C0', 'Amazon':'#FF9900', 'Otra':'#78909C' };
+  document.getElementById('dash-stores').innerHTML = Object.entries(stores)
+    .sort((a,b) => b[1]-a[1])
+    .map(([name, count]) => `
+      <div class="store-row">
+        <span class="store-name">${name}</span>
+        <div class="store-track"><div class="store-fill" style="width:${(count/maxStore*100).toFixed(0)}%;background:${storeColors[name]||'#78909C'}"></div></div>
+        <span class="store-count">${count}</span>
+      </div>`).join('') || '<p style="font-size:13px;color:var(--muted);padding:0 16px;">Sin datos aún</p>';
+
+  // Recent
+  const recent = requests.slice(0,4);
+  document.getElementById('dash-recent').innerHTML = recent.length
+    ? recent.map(r => `
+        <div class="req-card" onclick="openModal('${r.id}');switchPanel('list')">
+          <div class="req-top">
+            <div class="req-name">${r.item}</div>
+            <span class="status-badge ${statusClass(r.status)}">${r.status}</span>
+          </div>
+          <div class="req-footer">
+            <span class="req-requestor">${r.requestor}</span>
+            ${r.cost ? `<span class="req-cost">$${r.cost.toFixed(2)}</span>` : ''}
+          </div>
+        </div>`).join('')
+    : '<div class="empty-state"><div class="empty-icon">🛒</div>Aún no hay solicitudes</div>';
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(id) {
+  currentRequestId = id;
+  const r = requests.find(x => x.id === id);
+  if (!r) return;
+
+  document.getElementById('modal-title').textContent = r.item;
+  document.getElementById('modal-sub').textContent = `${r.store} · ${r.requestor}`;
+
+  const fields = [
+    ['Solicitante', r.requestor],
+    ['Categoría', r.category || '—'],
+    ['Tienda', r.store],
+    ['Cantidad', r.qty],
+    ['Costo est.', r.cost ? '$'+r.cost.toFixed(2) : '—'],
+    ['Total est.', r.cost ? '$'+(r.cost*r.qty).toFixed(2) : '—'],
+    ['Fecha nec.', r.date ? formatDate(r.date) : '—'],
+    ['Urgencia', r.urgency],
+    ['Estado', r.status],
+    ['Notas', r.notes || '—'],
+    ['Aprobado por', r.approvedBy || '—'],
+    ['Comprado por', r.boughtBy || '—'],
+    ['Llega aprox.', r.eta ? formatDate(r.eta) : '—'],
+    ['Recibido por', r.receivedBy || '—'],
+    ['Fecha recibo', r.receivedAt ? new Date(r.receivedAt).toLocaleDateString('en-US') : '—'],
+  ];
+
+  document.getElementById('modal-fields').innerHTML = fields.map(([l,v]) =>
+    `<div class="modal-field"><span class="modal-field-label">${l}</span><span class="modal-field-value">${v}</span></div>`
+  ).join('');
+
+  // Actions based on current status
+  const actions = [];
+  if (r.status === 'Pendiente') {
+    actions.push(`<button class="action-btn btn-approve" onclick="doAction('Aprobado')">✓ Aprobar</button>`);
+    actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
+  }
+  if (r.status === 'Aprobado') {
+    actions.push(`<button class="action-btn btn-buy" onclick="doAction('Comprado')">🛒 Comprado</button>`);
+    actions.push(`<button class="action-btn btn-reject" onclick="doAction('Rechazado')">✕ Rechazar</button>`);
+  }
+  if (r.status === 'Comprado') {
+    actions.push(`<button class="action-btn btn-receive" onclick="doAction('Recibido')">📦 Recibido</button>`);
+  }
+  if (['Aprobado','Comprado','Recibido'].includes(r.status)) {
+    actions.push(`<button class="action-btn" style="background:var(--gold-pale);color:#7a5000;" onclick="openEditModal('${r.id}')">✏️ Editar</button>`);
+  }
+  if (r.status !== 'Pendiente') {
+    actions.push(`<button class="action-btn btn-approve" onclick="doAction('Pendiente')">↺ Reabrir</button>`);
+  }
+  actions.push(`<button class="action-btn btn-delete" onclick="doAction('delete')">🗑 Eliminar</button>`);
+
+  document.getElementById('modal-actions').innerHTML = actions.join('');
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+const AUTHORIZED_APPROVERS = ['Ramon', 'Jose', 'Reidel'];
+
+function doAction(action) {
+  pendingAction = action;
+  document.getElementById('modal-overlay').classList.remove('open');
+  openActionModal();
+}
+
+function openActionModal() {
+  const r = requests.find(x => x.id === currentRequestId);
+  const actionLabels = {
+    'Aprobado': 'Aprobar solicitud',
+    'Rechazado': 'Rechazar solicitud',
+    'Comprado': 'Marcar como comprado',
+    'Recibido': 'Marcar como recibido',
+    'Pendiente': 'Reabrir solicitud',
+    'delete': 'Eliminar solicitud'
+  };
+  document.getElementById('action-title').textContent = actionLabels[pendingAction] || '¿Quién autoriza?';
+  document.getElementById('action-sub').textContent = r ? r.item : '';
+  document.getElementById('step-approver').style.display = 'block';
+  document.getElementById('step-received').style.display = 'none';
+  document.getElementById('action-overlay').classList.add('open');
+}
+
+function closeActionModal() {
+  document.getElementById('action-overlay').classList.remove('open');
+  pendingAction = null;
+  pendingApprover = null;
+}
+
+function selectApprover(name) {
+  pendingApprover = name;
+  if (pendingAction === 'Recibido') {
+    // Show step 2: received-by input
+    const r = requests.find(x => x.id === currentRequestId);
+    document.getElementById('received-item-name').textContent = r ? r.item : '';
+    document.getElementById('received-input').value = '';
+    document.getElementById('received-names-list').innerHTML = approvers.map(n => `<option value="${n}">`).join('');
+    document.getElementById('step-approver').style.display = 'none';
+    document.getElementById('step-received').style.display = 'block';
+    setTimeout(() => document.getElementById('received-input').focus(), 100);
+  } else {
+    document.getElementById('action-overlay').classList.remove('open');
+    executeAction(name);
+  }
+}
+
+function confirmReceived() {
+  const name = document.getElementById('received-input').value.trim();
+  if (!name) {
+    document.getElementById('received-input').style.borderColor = 'var(--red-txt)';
+    return;
+  }
+  document.getElementById('action-overlay').classList.remove('open');
+  executeAction(pendingApprover, name);
+  pendingApprover = null;
+}
+
+document.getElementById('received-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmReceived();
+});
+
+// ============================================================
+// PIN
+// ============================================================
+// PIN functions removed — replaced by role-based authorization
+
+function executeAction(actor, receivedBy) {
+  if (!pendingAction || !currentRequestId) return;
+  const idx = requests.findIndex(r => r.id === currentRequestId);
+  if (idx === -1) return;
+
+  if (pendingAction === 'delete') {
+    requests.splice(idx, 1);
+    showToast('Solicitud eliminada');
+  } else {
+    requests[idx].status = pendingAction;
+    requests[idx].updatedAt = new Date().toISOString();
+
+    // approvedBy: only set when transitioning TO Aprobado, never overwrite
+    if (pendingAction === 'Aprobado' && actor) {
+      requests[idx].approvedBy = actor;
+    }
+    // boughtBy: track who marked as Comprado
+    if (pendingAction === 'Comprado' && actor) {
+      requests[idx].boughtBy = actor;
+    }
+    // receivedBy: track who received
+    if (receivedBy) {
+      requests[idx].receivedBy = receivedBy;
+      requests[idx].receivedAt = new Date().toISOString();
+    }
+    // For other actions (Rechazado, Pendiente) track as lastActionBy
+    if (!['Aprobado','Comprado','Recibido'].includes(pendingAction) && actor) {
+      requests[idx].lastActionBy = actor;
+    }
+
+    showToast(`Estado: ${pendingAction}`);
+  }
+
+  saveRequests();
+  updatePendingDot();
+  renderList();
+  pendingAction = null;
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings() {
+  const el = document.getElementById('approvers-list-ui');
+  if (!approvers.length) {
+    el.innerHTML = '<p style="font-size:13px;color:var(--muted);">No hay aprobadores configurados.</p>';
+    return;
+  }
+  el.innerHTML = approvers.map((a,i) => `
+    <div class="approver-row">
+      <div>
+        <div class="approver-name">${a}</div>
+      </div>
+      <button class="remove-btn" onclick="removeApprover(${i})">Eliminar</button>
+    </div>`).join('');
+
+}
+
+function addApprover() {
+  const val = document.getElementById('new-approver-input').value.trim();
+  if (!val) return;
+  if (approvers.includes(val)) { showToast('Ya existe'); return; }
+  approvers.push(val);
+  saveApprovers();
+  document.getElementById('new-approver-input').value = '';
+  renderSettings();
+  showToast(`${val} agregado`);
+}
+
+function removeApprover(i) {
+  const name = approvers[i];
+  approvers.splice(i, 1);
+  saveApprovers();
+  renderSettings();
+  showToast(`${name} eliminado`);
+}
+
+// ============================================================
+// EDIT MODAL
+// ============================================================
+function openEditModal(id) {
+  currentRequestId = id;
+  const r = requests.find(x => x.id === id);
+  if (!r) return;
+
+  document.getElementById('edit-modal-sub').textContent = r.item + ' · ' + r.requestor;
+  document.getElementById('edit-store').value  = r.store || '';
+  document.getElementById('edit-cost').value   = r.cost || '';
+  document.getElementById('edit-qty').value    = r.qty  || 1;
+  document.getElementById('edit-eta').value    = r.eta  || '';
+  document.getElementById('edit-notes').value  = r.notes || '';
+
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('edit-overlay')) return;
+  document.getElementById('edit-overlay').classList.remove('open');
+}
+
+function saveEdit() {
+  const idx = requests.findIndex(r => r.id === currentRequestId);
+  if (idx === -1) return;
+
+  const store = document.getElementById('edit-store').value;
+  const cost  = parseFloat(document.getElementById('edit-cost').value) || 0;
+  const qty   = parseInt(document.getElementById('edit-qty').value)   || 1;
+  const eta   = document.getElementById('edit-eta').value;
+  const notes = document.getElementById('edit-notes').value.trim();
+
+  if (store)  requests[idx].store = store;
+  if (cost)   requests[idx].cost  = cost;
+  if (qty)    requests[idx].qty   = qty;
+  if (eta)    requests[idx].eta   = eta;
+  if (notes)  requests[idx].notes = notes;
+  requests[idx].updatedAt = new Date().toISOString();
+
+  saveRequests();
+  document.getElementById('edit-overlay').classList.remove('open');
+  showToast('Solicitud actualizada');
+  renderList();
+  renderDash();
+}
+
+
+// ============================================================
+// EXPORT EXCEL
+// ============================================================
+function exportXLSX() {
+  if (!requests.length) { showToast('No hay datos para exportar'); return; }
+  const data = requests.map(r => ({
+    'Fecha solicitud': r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US') : '',
+    'Solicitante': r.requestor,
+    'Artículo': r.item,
+    'Categoría': r.category,
+    'Tienda': r.store,
+    'Cantidad': r.qty,
+    'Costo unit ($)': r.cost,
+    'Total est ($)': +(r.cost * r.qty).toFixed(2),
+    'Urgencia': r.urgency,
+    'Estado': r.status,
+    'Fecha necesaria': r.date ? formatDate(r.date) : '',
+    'Notas': r.notes,
+    'Fecha estimada llegada': r.eta ? formatDate(r.eta) : '',
+    'Recibido por': r.receivedBy || '',
+    'Fecha de recibo': r.receivedAt ? new Date(r.receivedAt).toLocaleDateString('en-US') : '',
+    'Aprobado por': r.approvedBy || '',
+    'Comprado por': r.boughtBy || '',
+    'Última actualización': r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('en-US') : '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [10,14,24,20,18,8,12,12,10,12,14,28,16].map(w => ({wch:w}));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Solicitudes');
+
+  const month = new Date().toLocaleString('es',{month:'long',year:'numeric'});
+  XLSX.writeFile(wb, `CF_Purchases_${month}.xlsx`);
+  showToast('Excel exportado');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function updatePendingDot() {
+  const count = requests.filter(r => r.status === 'Pendiente').length;
+  document.getElementById('pending-dot').style.display = count > 0 ? 'block' : 'none';
+}
+
+// PWA
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+// Default PINs — each user has their own 4-digit PIN
+// Stored in storage so they can be changed
+const DEFAULT_PINS = {
+  'Ramon':   '1111',
+  'Jose':    '2222',
+  'Rolando': '3333',
+  'Pedro':   '4444',
+  'Deurys':  '5555',
+  'Wilson':  '6666',
+  'Reidel':  '7777'
+};
+
+let userPins = {};
+let loginPendingName = null;
+let loginPinEntry = '';
+
+async function loadPins() {
+  try {
+    const p = await window.storage.get('cf-user-pins');
+    if (p) userPins = JSON.parse(p.value);
+    else userPins = { ...DEFAULT_PINS };
+  } catch(e) { userPins = { ...DEFAULT_PINS }; }
+}
+
+function selectLoginName(name) {
+  loginPendingName = name;
+  loginPinEntry = '';
+  updatePinDots();
+  document.getElementById('login-pin-error').style.display = 'none';
+  document.getElementById('login-pin-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('login-pin-name').textContent = name;
+  document.getElementById('login-step-names').style.display = 'none';
+  document.getElementById('login-step-pin').style.display = 'block';
+}
+
+function backToNames() {
+  loginPinEntry = '';
+  loginPendingName = null;
+  document.getElementById('login-step-pin').style.display = 'none';
+  document.getElementById('login-step-names').style.display = 'block';
+}
+
+function pinKey(digit) {
+  if (loginPinEntry.length >= 4) return;
+  loginPinEntry += digit;
+  updatePinDots();
+  if (loginPinEntry.length === 4) {
+    setTimeout(checkLoginPin, 150);
+  }
+}
+
+function pinBackspace() {
+  loginPinEntry = loginPinEntry.slice(0, -1);
+  updatePinDots();
+  document.getElementById('login-pin-error').style.display = 'none';
+  [1,2,3,4].forEach(i => {
+    document.getElementById('pd'+i).classList.remove('error');
+  });
+}
+
+function updatePinDots() {
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('pd'+i);
+    dot.classList.toggle('filled', i <= loginPinEntry.length);
+    dot.classList.remove('error');
+  }
+}
+
+function checkLoginPin() {
+  const correctPin = userPins[loginPendingName] || DEFAULT_PINS[loginPendingName] || '0000';
+  if (loginPinEntry === correctPin) {
+    doLogin(loginPendingName);
+  } else {
+    // Wrong PIN — shake dots red
+    [1,2,3,4].forEach(i => document.getElementById('pd'+i).classList.add('error'));
+    document.getElementById('login-pin-error').style.display = 'block';
+    setTimeout(() => {
+      loginPinEntry = '';
+      updatePinDots();
+    }, 800);
+  }
+}
+
+function doLogin(name) {
+  currentUser = name;
+  loginPendingName = null;
+  loginPinEntry = '';
+  try { window.storage.set('cf-current-user', name); } catch(e) {}
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('user-display').textContent = '👤 ' + name;
+
+  const sel = document.getElementById('f-requestor');
+  if (sel) sel.value = name;
+
+  updateApproverHighlight(name);
+}
+
+function logout() {
+  currentUser = null;
+  try { window.storage.delete('cf-current-user'); } catch(e) {}
+  // Reset login screen to step 1
+  document.getElementById('login-step-pin').style.display = 'none';
+  document.getElementById('login-step-names').style.display = 'block';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function updateApproverHighlight(name) {
+  document.querySelectorAll('.approver-select-btn').forEach(btn => {
+    if (btn.textContent.trim() === name) {
+      btn.style.background = 'rgba(232,160,32,0.15)';
+      btn.style.borderColor = 'rgba(232,160,32,0.4)';
+      btn.style.color = '#7a5000';
+    }
+  });
+}
+
+
+function changeMyPin() {
+  if (!currentUser) { showToast('Debes estar logueado'); return; }
+  const current = document.getElementById('pin-current').value;
+  const newPin  = document.getElementById('pin-new').value;
+  const confirm = document.getElementById('pin-confirm-input').value;
+
+  const correctPin = userPins[currentUser] || DEFAULT_PINS[currentUser] || '0000';
+  if (current !== correctPin) { showToast('PIN actual incorrecto'); return; }
+  if (newPin.length !== 4)    { showToast('El PIN debe tener 4 dígitos'); return; }
+  if (newPin !== confirm)     { showToast('Los PINs no coinciden'); return; }
+
+  userPins[currentUser] = newPin;
+  try { window.storage.set('cf-user-pins', JSON.stringify(userPins)); } catch(e) {}
+  document.getElementById('pin-current').value = '';
+  document.getElementById('pin-new').value = '';
+  document.getElementById('pin-confirm-input').value = '';
+  showToast('PIN actualizado correctamente');
+}
+
+
+// ============================================================
+// INIT
+// ============================================================
+(async () => {
+  await loadData();
+  await loadPins();
+  updatePendingDot();
+  renderDash();
+  renderSettings();
+
+  // Check for saved session
+  try {
+    const saved = await window.storage.get('cf-current-user');
+    if (saved && saved.value) {
+      doLogin(saved.value);
+    }
+  } catch(e) {
+    // No saved session — login screen stays visible
+  }
+})();
+</script>
+</body>
+</html>
