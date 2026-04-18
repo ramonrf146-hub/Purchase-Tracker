@@ -14,6 +14,30 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc-gHRicMQuv10CBSCZB2eOfQqshftCVo",
+      authDomain: "purchase-tracker-b43b1.firebaseapp.com",
+      projectId: "purchase-tracker-b43b1",
+      storageBucket: "purchase-tracker-b43b1.firebasestorage.app",
+      messagingSenderId: "8022145425",
+      appId: "1:8022145425:web:b027a3658b0ad8468b0230"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    const reqCol = collection(db, 'requests');
+
+    // Expose to global scope for use in regular scripts
+    window._db         = db;
+    window._reqCol     = reqCol;
+    window._fsOps      = { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy };
+    window._fsReady    = true;
+    window.dispatchEvent(new Event('firebase-ready'));
+  </script>
 
   <style>
     :root {
@@ -1028,7 +1052,7 @@ function setUrgency(val, btn) {
   if (val === 'Crítico') btn.classList.add('sel-critical');
 }
 
-function submitRequest() {
+async function submitRequest() {
   const requestor = document.getElementById('f-requestor').value.trim();
   const item      = document.getElementById('f-item').value.trim();
   const category  = document.getElementById('f-category').value;
@@ -1053,16 +1077,17 @@ function submitRequest() {
     updatedAt: new Date().toISOString()
   };
 
-  requests.unshift(req);
-  saveRequests();
+  await addRequest(req);
 
   // Reset form
-  ['f-requestor','f-item','f-qty','f-cost','f-date','f-notes'].forEach(id => document.getElementById(id).value = '');
+  ['f-item','f-qty','f-cost','f-date','f-notes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-category').value = '';
   document.getElementById('f-store').value = '';
   setUrgency('Normal', document.querySelector('.urgency-btn'));
+  // Keep requestor as current user
+  const sel = document.getElementById('f-requestor');
+  if (sel && currentUser) sel.value = currentUser;
 
-  updatePendingDot();
   showToast('Solicitud enviada');
   switchPanel('list');
 }
@@ -1346,42 +1371,30 @@ function confirmReceived() {
 // ============================================================
 // PIN functions removed — replaced by role-based authorization
 
-function executeAction(actor, receivedBy) {
+async function executeAction(actor, receivedBy) {
   if (!pendingAction || !currentRequestId) return;
-  const idx = requests.findIndex(r => r.id === currentRequestId);
-  if (idx === -1) return;
 
   if (pendingAction === 'delete') {
-    requests.splice(idx, 1);
+    await deleteRequest(currentRequestId);
     showToast('Solicitud eliminada');
   } else {
-    requests[idx].status = pendingAction;
-    requests[idx].updatedAt = new Date().toISOString();
-
-    // approvedBy: only set when transitioning TO Aprobado, never overwrite
-    if (pendingAction === 'Aprobado' && actor) {
-      requests[idx].approvedBy = actor;
-    }
-    // boughtBy: track who marked as Comprado
-    if (pendingAction === 'Comprado' && actor) {
-      requests[idx].boughtBy = actor;
-    }
-    // receivedBy: track who received
+    const changes = {
+      status: pendingAction,
+      updatedAt: new Date().toISOString()
+    };
+    if (pendingAction === 'Aprobado' && actor)  changes.approvedBy  = actor;
+    if (pendingAction === 'Comprado' && actor)   changes.boughtBy    = actor;
     if (receivedBy) {
-      requests[idx].receivedBy = receivedBy;
-      requests[idx].receivedAt = new Date().toISOString();
+      changes.receivedBy = receivedBy;
+      changes.receivedAt = new Date().toISOString();
     }
-    // For other actions (Rechazado, Pendiente) track as lastActionBy
     if (!['Aprobado','Comprado','Recibido'].includes(pendingAction) && actor) {
-      requests[idx].lastActionBy = actor;
+      changes.lastActionBy = actor;
     }
-
+    await updateRequest(currentRequestId, changes);
     showToast(`Estado: ${pendingAction}`);
   }
 
-  saveRequests();
-  updatePendingDot();
-  renderList();
   pendingAction = null;
 }
 
@@ -1447,7 +1460,7 @@ function closeEditModal(e) {
   document.getElementById('edit-overlay').classList.remove('open');
 }
 
-function saveEdit() {
+async function saveEdit() {
   const idx = requests.findIndex(r => r.id === currentRequestId);
   if (idx === -1) return;
 
@@ -1464,11 +1477,16 @@ function saveEdit() {
   if (notes)  requests[idx].notes = notes;
   requests[idx].updatedAt = new Date().toISOString();
 
-  saveRequests();
+  await updateRequest(currentRequestId, {
+    ...(store  && { store }),
+    ...(cost   && { cost }),
+    ...(qty    && { qty }),
+    ...(eta    && { eta }),
+    ...(notes  && { notes }),
+    updatedAt: new Date().toISOString()
+  });
   document.getElementById('edit-overlay').classList.remove('open');
   showToast('Solicitud actualizada');
-  renderList();
-  renderDash();
 }
 
 
@@ -1679,8 +1697,6 @@ function changeMyPin() {
 (async () => {
   await loadData();
   await loadPins();
-  updatePendingDot();
-  renderDash();
   renderSettings();
 
   // Check for saved session
@@ -1689,8 +1705,19 @@ function changeMyPin() {
     if (saved && saved.value) {
       doLogin(saved.value);
     }
-  } catch(e) {
-    // No saved session — login screen stays visible
+  } catch(e) {}
+
+  // Wait for Firebase then subscribe
+  function initFirebase() {
+    subscribeToRequests();
+    updatePendingDot();
+    renderDash();
+  }
+
+  if (window._fsReady) {
+    initFirebase();
+  } else {
+    window.addEventListener('firebase-ready', initFirebase, { once: true });
   }
 })();
 </script>
