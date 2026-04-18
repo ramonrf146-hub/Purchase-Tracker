@@ -1290,6 +1290,16 @@ const AUTHORIZED_APPROVERS = ['Ramon', 'Jose', 'Reidel'];
 function doAction(action) {
   pendingAction = action;
   document.getElementById('modal-overlay').classList.remove('open');
+
+  if (action === 'delete') {
+    if (!confirm('¿Seguro que quieres eliminar esta solicitud?')) {
+      pendingAction = null;
+      return;
+    }
+    executeAction(currentUser || 'Sistema');
+    return;
+  }
+
   openActionModal();
 }
 
