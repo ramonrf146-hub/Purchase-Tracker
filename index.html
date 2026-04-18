@@ -989,8 +989,9 @@ async function loadData() {
     if (r) requests = JSON.parse(r.value);
   } catch(e) { requests = []; }
   try {
-    const a = await window.storage.get('cf-approvers');
-    if (a) approvers = JSON.parse(a.value);
+    const a = localStorage.getItem('cf-approvers');
+    if (a) approvers = JSON.parse(a);
+    else approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel'];
   } catch(e) { approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel']; }
   // PIN removed
 }
@@ -999,7 +1000,7 @@ async function saveRequests() {
   try { await window.storage.set('cf-requests', JSON.stringify(requests)); } catch(e) {}
 }
 async function saveApprovers() {
-  try { await window.storage.set('cf-approvers', JSON.stringify(approvers)); } catch(e) {}
+  try { localStorage.setItem('cf-approvers', JSON.stringify(approvers)); } catch(e) {}
 }
 
 
@@ -1292,22 +1293,41 @@ function doAction(action) {
   document.getElementById('modal-overlay').classList.remove('open');
 
   if (action === 'delete') {
-    const idToDelete = currentRequestId;
-    if (!confirm('¿Seguro que quieres eliminar esta solicitud?')) {
-      pendingAction = null;
-      return;
-    }
-    pendingAction = null;
-    deleteRequest(idToDelete).then(() => {
-      showToast('Solicitud eliminada');
-    }).catch(e => {
-      console.error('Delete error:', e);
-      showToast('Error al eliminar: ' + e.message);
-    });
+    showDeleteConfirm(currentRequestId);
     return;
   }
 
   openActionModal();
+}
+
+function showDeleteConfirm(id) {
+  const req = requests.find(r => r.id === id);
+  const name = req ? req.item : 'esta solicitud';
+  // Use a custom confirm modal instead of native confirm()
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(27,58,92,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:24px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+      <div style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;color:#1B3A5C;margin-bottom:8px;">Eliminar solicitud</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:#6B7F94;margin-bottom:20px;">¿Seguro que quieres eliminar "<b>${name}</b>"? Esta acción no se puede deshacer.</div>
+      <div style="display:flex;gap:10px;">
+        <button id="del-cancel" style="flex:1;padding:12px;background:#F7F2E8;color:#6B7F94;border:1px solid rgba(27,58,92,0.2);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Cancelar</button>
+        <button id="del-confirm" style="flex:1;padding:12px;background:#C62828;color:white;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Eliminar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('del-cancel').onclick = () => {
+    document.body.removeChild(overlay);
+    pendingAction = null;
+  };
+  document.getElementById('del-confirm').onclick = () => {
+    document.body.removeChild(overlay);
+    pendingAction = null;
+    if (!window._db) { showToast('Firebase no disponible'); return; }
+    window._db.collection('requests').doc(id).delete()
+      .then(() => showToast('Solicitud eliminada'))
+      .catch(e => { console.error(e); showToast('Error: ' + e.message); });
+  };
 }
 
 function openActionModal() {
@@ -1565,8 +1585,8 @@ let loginPinEntry = '';
 
 async function loadPins() {
   try {
-    const p = await window.storage.get('cf-user-pins');
-    if (p) userPins = JSON.parse(p.value);
+    const p = localStorage.getItem('cf-user-pins');
+    if (p) userPins = JSON.parse(p);
     else userPins = { ...DEFAULT_PINS };
   } catch(e) { userPins = { ...DEFAULT_PINS }; }
 }
@@ -1634,7 +1654,7 @@ function doLogin(name) {
   currentUser = name;
   loginPendingName = null;
   loginPinEntry = '';
-  try { window.storage.set('cf-current-user', name); } catch(e) {}
+  try { localStorage.setItem('cf-current-user', name); } catch(e) {}
 
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('user-display').textContent = '👤 ' + name;
@@ -1647,7 +1667,7 @@ function doLogin(name) {
 
 function logout() {
   currentUser = null;
-  try { window.storage.delete('cf-current-user'); } catch(e) {}
+  try { localStorage.removeItem('cf-current-user'); } catch(e) {}
   // Reset login screen to step 1
   document.getElementById('login-step-pin').style.display = 'none';
   document.getElementById('login-step-names').style.display = 'block';
@@ -1677,7 +1697,7 @@ function changeMyPin() {
   if (newPin !== confirm)     { showToast('Los PINs no coinciden'); return; }
 
   userPins[currentUser] = newPin;
-  try { window.storage.set('cf-user-pins', JSON.stringify(userPins)); } catch(e) {}
+  try { localStorage.setItem('cf-user-pins', JSON.stringify(userPins)); } catch(e) {}
   document.getElementById('pin-current').value = '';
   document.getElementById('pin-new').value = '';
   document.getElementById('pin-confirm-input').value = '';
@@ -1731,17 +1751,20 @@ function subscribeToRequests() {
 
   // Check for saved session
   try {
-    const saved = await window.storage.get('cf-current-user');
-    if (saved && saved.value) {
-      doLogin(saved.value);
-    }
+    const saved = localStorage.getItem('cf-current-user');
+    if (saved) doLogin(saved);
   } catch(e) {}
+
+  // Restore last active panel
+  try {
+    const lastPanel = localStorage.getItem('cf-active-panel') || 'dash';
+    switchPanel(lastPanel);
+  } catch(e) { switchPanel('dash'); }
 
   // Wait for Firebase then subscribe
   function initFirebase() {
     subscribeToRequests();
     updatePendingDot();
-    renderDash();
   }
 
   if (window._fsReady) {
