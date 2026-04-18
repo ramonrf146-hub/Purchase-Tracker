@@ -14,30 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBc-gHRicMQuv10CBSCZB2eOfQqshftCVo",
-      authDomain: "purchase-tracker-b43b1.firebaseapp.com",
-      projectId: "purchase-tracker-b43b1",
-      storageBucket: "purchase-tracker-b43b1.firebasestorage.app",
-      messagingSenderId: "8022145425",
-      appId: "1:8022145425:web:b027a3658b0ad8468b0230"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
-    const reqCol = collection(db, 'requests');
-
-    // Expose to global scope for use in regular scripts
-    window._db         = db;
-    window._reqCol     = reqCol;
-    window._fsOps      = { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy };
-    window._fsReady    = true;
-    window.dispatchEvent(new Event('firebase-ready'));
-  </script>
 
   <style>
     :root {
@@ -1721,5 +1698,24 @@ function changeMyPin() {
   }
 })();
 </script>
+
+  <!-- Firebase compat SDK (global scope, no modules needed) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBc-gHRicMQuv10CBSCZB2eOfQqshftCVo",
+      authDomain: "purchase-tracker-b43b1.firebaseapp.com",
+      projectId: "purchase-tracker-b43b1",
+      storageBucket: "purchase-tracker-b43b1.firebasestorage.app",
+      messagingSenderId: "8022145425",
+      appId: "1:8022145425:web:b027a3658b0ad8468b0230"
+    };
+    firebase.initializeApp(firebaseConfig);
+    window._db     = firebase.firestore();
+    window._reqCol = window._db.collection('requests');
+    window._fsReady = true;
+    window.dispatchEvent(new Event('firebase-ready'));
+  </script>
 </body>
 </html>
