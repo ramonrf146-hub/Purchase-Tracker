@@ -1046,7 +1046,6 @@ async function submitRequest() {
   }
 
   const req = {
-    id: Date.now().toString(),
     requestor, item, category, store,
     qty: parseInt(qty), cost, date, notes,
     urgency: urgencyVal,
@@ -1324,9 +1323,11 @@ function showDeleteConfirm(id) {
     document.body.removeChild(overlay);
     pendingAction = null;
     if (!window._db) { showToast('Firebase no disponible'); return; }
+    if (!id) { showToast('ID no válido'); return; }
+    console.log('Deleting doc id:', id);
     window._db.collection('requests').doc(id).delete()
       .then(() => showToast('Solicitud eliminada'))
-      .catch(e => { console.error(e); showToast('Error: ' + e.message); });
+      .catch(e => { console.error('Delete error:', e); showToast('Error: ' + e.message); });
   };
 }
 
@@ -1708,15 +1709,23 @@ function changeMyPin() {
 // ---- Firebase CRUD (compat API) ----
 async function addRequest(req) {
   try {
-    const docRef = await window._reqCol.add(req);
-    req.id = docRef.id;
+    await window._reqCol.add(req);
+    // onSnapshot will update the local requests array automatically
   } catch(e) { console.error('addRequest:', e); showToast('Error al guardar: ' + e.message); }
 }
 
 async function updateRequest(id, changes) {
+  if (!id || !window._db) { showToast('Error: ID no válido'); console.error('updateRequest - bad id or db:', id); return; }
   try {
     await window._db.collection('requests').doc(id).update(changes);
-  } catch(e) { console.error('updateRequest:', e); showToast('Error al actualizar'); }
+  } catch(e) {
+    console.error('updateRequest error:', e);
+    if (e.code === 'not-found') {
+      showToast('Solicitud no encontrada en Firebase');
+    } else {
+      showToast('Error al actualizar: ' + e.message);
+    }
+  }
 }
 
 async function deleteRequest(id) {
