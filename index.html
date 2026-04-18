@@ -1136,6 +1136,7 @@ function formatDate(d) {
 // DASHBOARD
 // ============================================================
 function renderDash() {
+  const visible  = getVisibleRequests();
   const received = visible.filter(r => r.status === 'Recibido');
   const total = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
   const pending = visible.filter(r => r.status === 'Pendiente').length;
@@ -1146,7 +1147,6 @@ function renderDash() {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   }).length;
 
-  const visible  = getVisibleRequests();
   const bought   = visible.filter(r => r.status === 'Comprado');
   const boughtCost = bought.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
   const recvCost   = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
