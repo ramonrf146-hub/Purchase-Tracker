@@ -693,6 +693,11 @@
         </select>
       </div>
 
+      <div class="field">
+        <label>Departamento / Proyecto <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted);">— opcional</span></label>
+        <input type="text" id="f-dept" placeholder="Ej: Irrigation, Greenhouse 3, Shade House B...">
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label>Tienda</label>
@@ -1048,9 +1053,11 @@ async function submitRequest() {
   // Generate order number
   const orderNum = await getNextOrderNumber();
 
+  const dept = document.getElementById('f-dept').value.trim();
+
   const req = {
     orderNum,
-    requestor, item, category, store,
+    requestor, item, category, dept, store,
     qty: parseInt(qty), cost, date, notes,
     urgency: urgencyVal,
     status: 'Pendiente',
@@ -1061,7 +1068,7 @@ async function submitRequest() {
   await addRequest(req);
 
   // Reset form
-  ['f-item','f-qty','f-cost','f-date','f-notes'].forEach(id => document.getElementById(id).value = '');
+  ['f-item','f-qty','f-cost','f-date','f-notes','f-dept'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-category').value = '';
   document.getElementById('f-store').value = '';
   setUrgency('Normal', document.querySelector('.urgency-btn'));
@@ -1110,6 +1117,7 @@ function renderList() {
       <div class="req-meta">
         <span class="req-tag">${r.store || 'Sin tienda'}</span>
         ${r.category ? `<span class="req-tag">${r.category}</span>` : ''}
+        ${r.dept ? `<span class="req-tag" style="color:var(--blue-txt);border-color:rgba(21,101,192,0.2);background:var(--blue-bg);">🏢 ${r.dept}</span>` : ''}
         ${r.urgency !== 'Normal' ? `<span class="req-tag" style="color:${r.urgency==='Crítico'?'var(--red-txt)':'var(--amber-txt)'}">⚡ ${r.urgency}</span>` : ''}
         ${r.qty > 1 ? `<span class="req-tag">x${r.qty}</span>` : ''}
         ${r.receivedBy ? `<span class="req-tag" style="color:var(--green)">✓ ${r.receivedBy}</span>` : ''}
@@ -1249,6 +1257,7 @@ function openModal(id) {
     ['# Orden', r.orderNum || '—'],
     ['Solicitante', r.requestor],
     ['Categoría', r.category || '—'],
+    ['Depto / Proyecto', r.dept || '—'],
     ['Tienda', r.store],
     ['Cantidad', r.qty],
     ['Costo est.', r.cost ? '$'+r.cost.toFixed(2) : '—'],
@@ -1553,6 +1562,7 @@ function exportXLSX() {
     'Solicitante': r.requestor,
     'Artículo': r.item,
     'Categoría': r.category,
+    'Depto / Proyecto': r.dept || '',
     'Tienda': r.store,
     'Cantidad': r.qty,
     'Costo unit ($)': r.cost,
