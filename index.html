@@ -500,6 +500,11 @@
       cursor: pointer; transition: background 0.15s;
     }
     .action-sheet-confirm:active { background: var(--navy-dark); }
+
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -1069,6 +1074,7 @@ async function submitRequest() {
   };
 
   await addRequest(req);
+  await sendNewOrderNotification(req);
 
   // Reset form
   ['f-item','f-qty','f-cost','f-date','f-notes','f-dept'].forEach(id => document.getElementById(id).value = '');
@@ -1718,6 +1724,14 @@ function doLogin(name) {
   if (sel) sel.value = name;
 
   updateApproverHighlight(name);
+
+  // Start notifications for managers
+  if (MANAGERS_NOTIFY.includes(name)) {
+    setTimeout(() => {
+      initNotifications();
+      subscribeToNotifications();
+    }, 1000);
+  }
 }
 
 function logout() {
@@ -1824,6 +1838,124 @@ function subscribeToRequests() {
 
 
 // ============================================================
+// PUSH NOTIFICATIONS (FCM)
+// ============================================================
+const VAPID_KEY = 'BJL6cU0wIufsCXCj3_cj9Wix3xnmz79Sm4wI9PEkfgwX8LoinXoRBWe6qyTKHcS5RotU1JXRT6f7ICG92BEEdP4';
+const MANAGERS_NOTIFY = ['Ramon','Jose','Reidel'];
+
+async function initNotifications() {
+  if (!('Notification' in window)) return;
+  if (!window._messaging) return;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const token = await window._messaging.getToken({ vapidKey: VAPID_KEY });
+    if (token && currentUser) {
+      // Save token to Firestore linked to user
+      await window._db.collection('fcm_tokens').doc(currentUser).set({
+        token, user: currentUser, updatedAt: new Date().toISOString()
+      });
+      console.log('FCM token saved for', currentUser);
+    }
+  } catch(e) {
+    console.error('FCM init error:', e);
+  }
+}
+
+async function sendNewOrderNotification(req) {
+  // Notify all managers via Firestore trigger workaround
+  // Write a notification document — managers' devices pick it up via onSnapshot
+  try {
+    await window._db.collection('notifications').add({
+      type: 'new_order',
+      orderNum: req.orderNum || '',
+      item: req.item,
+      requestor: req.requestor,
+      dept: req.dept || '',
+      createdAt: new Date().toISOString(),
+      readBy: []
+    });
+  } catch(e) { console.error('Notification write error:', e); }
+}
+
+function subscribeToNotifications() {
+  if (!window._db || !currentUser) return;
+  if (!MANAGERS_NOTIFY.includes(currentUser)) return;
+
+  window._db.collection('notifications')
+    .orderBy('createdAt', 'desc')
+    .limit(10)
+    .onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const n = change.doc.data();
+          const readBy = n.readBy || [];
+          if (readBy.includes(currentUser)) return;
+          // Only show if notification is less than 30 seconds old
+          const age = Date.now() - new Date(n.createdAt).getTime();
+          if (age > 30000) return;
+          showPushBanner(n, change.doc.id);
+        }
+      });
+    });
+
+  // Handle foreground FCM messages
+  if (window._messaging) {
+    window._messaging.onMessage((payload) => {
+      const { title, body } = payload.notification || {};
+      if (title) showInAppNotification(title, body || '');
+    });
+  }
+}
+
+function showPushBanner(n, docId) {
+  // Show in-app banner notification
+  const banner = document.createElement('div');
+  banner.style.cssText = `
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    background:#1B3A5C;color:white;
+    border-radius:12px;padding:14px 18px;
+    max-width:340px;width:calc(100% - 32px);
+    box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    z-index:600;display:flex;gap:12px;align-items:flex-start;
+    animation:slideDown 0.3s ease;font-family:'DM Sans',sans-serif;
+  `;
+  banner.innerHTML = `
+    <div style="flex:1">
+      <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:2px;">🛒 Nueva solicitud</div>
+      <div style="font-size:14px;font-weight:600;">${n.item}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Por ${n.requestor}${n.dept ? ' · '+n.dept : ''} ${n.orderNum ? '· '+n.orderNum : ''}</div>
+    </div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.5);font-size:18px;cursor:pointer;padding:0;line-height:1;">×</button>
+  `;
+  document.body.appendChild(banner);
+
+  // Mark as read
+  window._db.collection('notifications').doc(docId).update({
+    readBy: firebase.firestore.FieldValue.arrayUnion(currentUser)
+  }).catch(()=>{});
+
+  // Auto remove after 6 seconds
+  setTimeout(() => { if (banner.parentElement) banner.remove(); }, 6000);
+}
+
+function showInAppNotification(title, body) {
+  const banner = document.createElement('div');
+  banner.style.cssText = `
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    background:#1B3A5C;color:white;
+    border-radius:12px;padding:14px 18px;
+    max-width:340px;width:calc(100% - 32px);
+    box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    z-index:600;font-family:'DM Sans',sans-serif;
+  `;
+  banner.innerHTML = `<div style="font-size:14px;font-weight:600;">${title}</div><div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:4px;">${body}</div>`;
+  document.body.appendChild(banner);
+  setTimeout(() => { if (banner.parentElement) banner.remove(); }, 5000);
+}
+
+
+// ============================================================
 // INIT
 // ============================================================
 (async () => {
@@ -1860,6 +1992,7 @@ function subscribeToRequests() {
   <!-- Firebase compat SDK (global scope, no modules needed) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyBc-gHRicMQuv10CBSCZB2eOfQqshftCVo",
@@ -1870,8 +2003,9 @@ function subscribeToRequests() {
       appId: "1:8022145425:web:b027a3658b0ad8468b0230"
     };
     firebase.initializeApp(firebaseConfig);
-    window._db     = firebase.firestore();
-    window._reqCol = window._db.collection('requests');
+    window._db      = firebase.firestore();
+    window._reqCol  = window._db.collection('requests');
+    window._messaging = firebase.messaging();
     window._fsReady = true;
     window.dispatchEvent(new Event('firebase-ready'));
   </script>
