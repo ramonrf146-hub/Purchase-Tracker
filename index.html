@@ -1463,6 +1463,18 @@ async function executeAction(actor, receivedBy) {
     }
     await updateRequest(currentRequestId, changes);
     showToast(`Estado: ${pendingAction}`);
+
+    // Send notification to requestor and managers
+    const req = requests.find(r => r.id === currentRequestId);
+    if (req) {
+      await sendNotification(pendingAction, {
+        orderNum: req.orderNum || '',
+        item: req.item,
+        requestor: req.requestor,
+        dept: req.dept || '',
+        actor: actor || currentUser || ''
+      });
+    }
   }
 
   pendingAction = null;
@@ -1725,13 +1737,11 @@ function doLogin(name) {
 
   updateApproverHighlight(name);
 
-  // Start notifications for managers
-  if (MANAGERS_NOTIFY.includes(name)) {
-    setTimeout(() => {
-      initNotifications();
-      subscribeToNotifications();
-    }, 1000);
-  }
+  // Start notifications for all users
+  setTimeout(() => {
+    initNotifications();
+    subscribeToNotifications();
+  }, 1000);
 }
 
 function logout() {
@@ -1862,25 +1872,38 @@ async function initNotifications() {
   }
 }
 
-async function sendNewOrderNotification(req) {
-  // Notify all managers via Firestore trigger workaround
-  // Write a notification document — managers' devices pick it up via onSnapshot
+async function sendNotification(type, data) {
   try {
+    const labels = {
+      'new_order':  '🛒 Nueva solicitud',
+      'Aprobado':   '✅ Orden aprobada',
+      'Rechazado':  '❌ Orden rechazada',
+      'Comprado':   '🏪 Orden comprada',
+      'Recibido':   '📦 Orden recibida',
+      'Pendiente':  '↺ Orden reabierta',
+    };
     await window._db.collection('notifications').add({
-      type: 'new_order',
-      orderNum: req.orderNum || '',
-      item: req.item,
-      requestor: req.requestor,
-      dept: req.dept || '',
+      type,
+      label: labels[type] || type,
+      orderNum: data.orderNum || '',
+      item: data.item || '',
+      requestor: data.requestor || '',
+      dept: data.dept || '',
+      actor: data.actor || '',
       createdAt: new Date().toISOString(),
       readBy: []
     });
   } catch(e) { console.error('Notification write error:', e); }
 }
 
+async function sendNewOrderNotification(req) {
+  await sendNotification('new_order', req);
+}
+
 function subscribeToNotifications() {
   if (!window._db || !currentUser) return;
-  if (!MANAGERS_NOTIFY.includes(currentUser)) return;
+  // Managers get ALL notifications
+  // Regular users get notifications about their own orders
 
   window._db.collection('notifications')
     .orderBy('createdAt', 'desc')
@@ -1894,7 +1917,17 @@ function subscribeToNotifications() {
           // Only show if notification is less than 30 seconds old
           const age = Date.now() - new Date(n.createdAt).getTime();
           if (age > 30000) return;
-          showPushBanner(n, change.doc.id);
+
+          const isManager = MANAGERS_NOTIFY.includes(currentUser);
+          const isMyOrder = n.requestor === currentUser;
+          const isNewOrder = n.type === 'new_order';
+          const isStatusChange = ['Aprobado','Rechazado','Comprado','Recibido','Pendiente'].includes(n.type);
+
+          // Managers see all new orders and status changes
+          // Requestors see status changes on their own orders
+          if (isManager && isNewOrder) { showPushBanner(n, change.doc.id); return; }
+          if (isManager && isStatusChange) { showPushBanner(n, change.doc.id); return; }
+          if (isMyOrder && isStatusChange) { showPushBanner(n, change.doc.id); return; }
         }
       });
     });
@@ -1922,7 +1955,7 @@ function showPushBanner(n, docId) {
   `;
   banner.innerHTML = `
     <div style="flex:1">
-      <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:2px;">🛒 Nueva solicitud</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:2px;">${n.label || '🛒 Nueva solicitud'}</div>
       <div style="font-size:14px;font-weight:600;">${n.item}</div>
       <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">Por ${n.requestor}${n.dept ? ' · '+n.dept : ''} ${n.orderNum ? '· '+n.orderNum : ''}</div>
     </div>
