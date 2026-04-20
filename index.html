@@ -540,6 +540,8 @@
           <button class="login-name-btn" onclick="selectLoginName('Deurys')">Deurys</button>
           <button class="login-name-btn" onclick="selectLoginName('Wilson')">Wilson</button>
           <button class="login-name-btn" onclick="selectLoginName('Reidel')">Reidel</button>
+          <button class="login-name-btn" onclick="selectLoginName('Ariel')">Ariel</button>
+        <button class="login-name-btn" onclick="selectLoginName('Ariel')">Ariel</button>
         </div>
       </div>
       <div style="font-size:11px;color:rgba(255,255,255,0.25);text-align:center;margin-top:16px;">
@@ -671,6 +673,7 @@
           <option>Deurys</option>
           <option>Wilson</option>
           <option>Reidel</option>
+          <option>Ariel</option>
         </select>
       </div>
 
@@ -954,6 +957,7 @@
           <option>Deurys</option>
           <option>Wilson</option>
           <option>Reidel</option>
+          <option>Ariel</option>
         </select>
         <div class="approver-dropdown-arrow">▾</div>
       </div>
@@ -996,8 +1000,8 @@ async function loadData() {
   try {
     const a = localStorage.getItem('cf-approvers');
     if (a) approvers = JSON.parse(a);
-    else approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel'];
-  } catch(e) { approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel']; }
+    else approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel','Ariel'];
+  } catch(e) { approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel','Ariel']; }
   // PIN removed
 }
 
@@ -1625,7 +1629,8 @@ const DEFAULT_PINS = {
   'Pedro':   '4444',
   'Deurys':  '5555',
   'Wilson':  '6666',
-  'Reidel':  '7777'
+  'Reidel':  '7777',
+  'Ariel':   '8888'
 };
 
 let userPins = {};
