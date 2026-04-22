@@ -1134,7 +1134,7 @@ function renderList() {
       <div class="req-footer">
         <span class="req-requestor">${r.requestor}</span>
         ${r.eta ? `<span class="req-date" style="color:var(--green)">📦 ${formatDate(r.eta)}</span>` : (r.date ? `<span class="req-date">${formatDate(r.date)}</span>` : '')}
-        ${r.cost ? `<span class="req-cost">$${r.cost.toFixed(2)}</span>` : ''}
+        ${r.cost ? `<span class="req-cost">$${(parseFloat(r.cost)*(parseInt(r.qty)||1)).toFixed(2)}</span>` : ''}
       </div>
     </div>`).join('');
 }
@@ -1155,7 +1155,13 @@ function formatDate(d) {
 function renderDash() {
   const visible  = getVisibleRequests();
   const received = visible.filter(r => r.status === 'Recibido');
-  const total = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
+  // Total gastado = everything purchased (Comprado + Recibido) with real cost * qty
+  const purchased = visible.filter(r => ['Comprado','Recibido'].includes(r.status));
+  const total = purchased.reduce((s,r) => {
+    const cost = parseFloat(r.cost) || 0;
+    const qty  = parseInt(r.qty)   || 1;
+    return s + (cost * qty);
+  }, 0);
   const pending = visible.filter(r => r.status === 'Pendiente').length;
   const approved = visible.filter(r => r.status === 'Aprobado').length;
   const now = new Date();
@@ -1165,11 +1171,19 @@ function renderDash() {
   }).length;
 
   const bought   = visible.filter(r => r.status === 'Comprado');
-  const boughtCost = bought.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
-  const recvCost   = received.reduce((s,r) => s + (r.cost * r.qty || 0), 0);
+  const boughtCost = bought.reduce((s,r) => {
+    const cost = parseFloat(r.cost) || 0;
+    const qty  = parseInt(r.qty)   || 1;
+    return s + (cost * qty);
+  }, 0);
+  const recvCost = received.reduce((s,r) => {
+    const cost = parseFloat(r.cost) || 0;
+    const qty  = parseInt(r.qty)   || 1;
+    return s + (cost * qty);
+  }, 0);
 
   document.getElementById('dash-total').textContent = '$' + recvCost.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-  document.getElementById('dash-received').textContent = received.length + ' recibidos';
+  document.getElementById('dash-received').textContent = purchased.length + ' órdenes compradas';
   document.getElementById('dash-pending').textContent = pending;
   document.getElementById('dash-approved').textContent = approved;
   document.getElementById('dash-month').textContent = monthCount;
@@ -1245,7 +1259,7 @@ function renderDash() {
           </div>
           <div class="req-footer">
             <span class="req-requestor">${r.requestor}</span>
-            ${r.cost ? `<span class="req-cost">$${r.cost.toFixed(2)}</span>` : ''}
+            ${r.cost ? `<span class="req-cost">$${(parseFloat(r.cost)*(parseInt(r.qty)||1)).toFixed(2)}</span>` : ''}
           </div>
         </div>`).join('')
     : '<div class="empty-state"><div class="empty-icon">🛒</div>Aún no hay solicitudes</div>';
