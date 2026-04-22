@@ -1182,7 +1182,7 @@ function renderDash() {
     return s + (cost * qty);
   }, 0);
 
-  document.getElementById('dash-total').textContent = '$' + recvCost.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('dash-total').textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   document.getElementById('dash-received').textContent = purchased.length + ' órdenes compradas';
   document.getElementById('dash-pending').textContent = pending;
   document.getElementById('dash-approved').textContent = approved;
