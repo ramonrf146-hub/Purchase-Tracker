@@ -505,6 +505,42 @@
       from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
       to   { transform: translateX(-50%) translateY(0); opacity: 1; }
     }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--cream);
+      transition: all 0.15s;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-zone:active { background: var(--cream2); border-color: var(--gold); }
+    .upload-file-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--white); border: 1px solid var(--border2);
+      border-radius: 20px; padding: 5px 10px;
+      font-size: 12px; font-weight: 500; color: var(--navy);
+      margin: 3px;
+    }
+    .upload-file-chip button {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 14px; padding: 0; line-height: 1;
+    }
+    .attach-thumb {
+      width: 48px; height: 48px; border-radius: 6px;
+      object-fit: cover; border: 1px solid var(--border);
+    }
+    .attach-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--blue-txt); font-size: 12px; font-weight: 500;
+      text-decoration: none; padding: 6px 10px;
+      background: var(--blue-bg); border-radius: 6px; margin: 3px;
+    }
   </style>
 </head>
 <body>
@@ -752,6 +788,25 @@
       <div class="field">
         <label>Notas adicionales</label>
         <textarea id="f-notes" placeholder="Número de parte, especificaciones, dónde se va a usar..."></textarea>
+      </div>
+
+      <div class="field">
+        <label>Adjuntar archivo / foto <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--muted);">— opcional</span></label>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('f-file').click()">
+          <input type="file" id="f-file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" multiple style="display:none" onchange="handleFileSelect(this)">
+          <div id="upload-placeholder">
+            <div style="font-size:24px;margin-bottom:6px;">📎</div>
+            <div style="font-size:13px;font-weight:600;color:var(--navy);">Toca para adjuntar</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Fotos, PDF, documentos</div>
+          </div>
+          <div id="upload-preview" style="display:none;"></div>
+        </div>
+        <div id="upload-progress" style="display:none;margin-top:8px;">
+          <div style="height:4px;background:var(--cream2);border-radius:2px;overflow:hidden;">
+            <div id="progress-bar" style="height:100%;background:var(--navy);width:0%;transition:width 0.3s;border-radius:2px;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="progress-text">Subiendo...</div>
+        </div>
       </div>
 
       <button class="submit-btn" onclick="submitRequest()">Enviar solicitud</button>
@@ -1073,11 +1128,23 @@ async function submitRequest() {
     updatedAt: new Date().toISOString()
   };
 
-  await addRequest(req);
-  await sendNewOrderNotification(req);
+  // First add request to get the Firestore ID
+  const docRef = await window._reqCol.add(req);
+  const reqId = docRef.id;
+
+  // Upload files if any
+  if (selectedFiles.length) {
+    const attachments = await uploadFiles(reqId);
+    if (attachments.length) {
+      await window._db.collection('requests').doc(reqId).update({ attachments });
+    }
+  }
+
+  await sendNewOrderNotification({ ...req, id: reqId });
 
   // Reset form
   ['f-item','f-qty','f-cost','f-date','f-notes','f-dept'].forEach(id => document.getElementById(id).value = '');
+  resetFileUpload();
   document.getElementById('f-category').value = '';
   document.getElementById('f-store').value = '';
   setUrgency('Normal', document.querySelector('.urgency-btn'));
@@ -1296,9 +1363,25 @@ function openModal(id) {
     ['Fecha recibo', r.receivedAt ? new Date(r.receivedAt).toLocaleDateString('en-US') : '—'],
   ];
 
-  document.getElementById('modal-fields').innerHTML = fields.map(([l,v]) =>
+  let fieldsHtml = fields.map(([l,v]) =>
     `<div class="modal-field"><span class="modal-field-label">${l}</span><span class="modal-field-value">${v}</span></div>`
   ).join('');
+
+  // Show attachments
+  if (r.attachments && r.attachments.length) {
+    fieldsHtml += `<div class="modal-field" style="flex-direction:column;gap:8px;">
+      <span class="modal-field-label">Adjuntos</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${r.attachments.map(a => {
+          if (a.type && a.type.startsWith('image/')) {
+            return `<a href="${a.url}" target="_blank"><img src="${a.url}" class="attach-thumb" alt="${a.name}"></a>`;
+          }
+          return `<a href="${a.url}" target="_blank" class="attach-link">📄 ${a.name}</a>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  document.getElementById('modal-fields').innerHTML = fieldsHtml;
 
   // Actions based on current status and user role
   const actions = [];
@@ -1862,6 +1945,85 @@ function subscribeToRequests() {
 
 
 // ============================================================
+// FILE UPLOAD
+// ============================================================
+let selectedFiles = [];
+
+function handleFileSelect(input) {
+  const files = Array.from(input.files);
+  selectedFiles = [...selectedFiles, ...files];
+  renderFilePreview();
+}
+
+function renderFilePreview() {
+  const preview = document.getElementById('upload-preview');
+  const placeholder = document.getElementById('upload-placeholder');
+  if (!selectedFiles.length) {
+    preview.style.display = 'none';
+    placeholder.style.display = 'block';
+    return;
+  }
+  placeholder.style.display = 'none';
+  preview.style.display = 'flex';
+  preview.style.flexWrap = 'wrap';
+  preview.style.gap = '6px';
+  preview.style.justifyContent = 'center';
+  preview.innerHTML = selectedFiles.map((f, i) => {
+    const isImg = f.type.startsWith('image/');
+    const icon = isImg ? '🖼️' : '📄';
+    const name = f.name.length > 18 ? f.name.slice(0,16)+'...' : f.name;
+    return `<div class="upload-file-chip">${icon} ${name} <button onclick="removeFile(${i})">×</button></div>`;
+  }).join('');
+}
+
+function removeFile(i) {
+  selectedFiles.splice(i, 1);
+  renderFilePreview();
+}
+
+async function uploadFiles(reqId) {
+  if (!selectedFiles.length || !window._storage) return [];
+  const urls = [];
+  const total = selectedFiles.length;
+  document.getElementById('upload-progress').style.display = 'block';
+
+  for (let i = 0; i < total; i++) {
+    const file = selectedFiles[i];
+    const path = `requests/${reqId}/${Date.now()}_${file.name}`;
+    const ref = window._storage.ref(path);
+    const task = ref.put(file);
+
+    await new Promise((resolve, reject) => {
+      task.on('state_changed',
+        (snap) => {
+          const pct = Math.round((i / total + snap.bytesTransferred / snap.totalBytes / total) * 100);
+          document.getElementById('progress-bar').style.width = pct + '%';
+          document.getElementById('progress-text').textContent = `Subiendo ${i+1}/${total}... ${pct}%`;
+        },
+        reject,
+        async () => {
+          const url = await ref.getDownloadURL();
+          urls.push({ name: file.name, url, type: file.type });
+          resolve();
+        }
+      );
+    });
+  }
+
+  document.getElementById('progress-bar').style.width = '100%';
+  document.getElementById('progress-text').textContent = '¡Listo!';
+  setTimeout(() => { document.getElementById('upload-progress').style.display = 'none'; }, 1500);
+  return urls;
+}
+
+function resetFileUpload() {
+  selectedFiles = [];
+  document.getElementById('f-file').value = '';
+  renderFilePreview();
+}
+
+
+// ============================================================
 // PUSH NOTIFICATIONS (FCM)
 // ============================================================
 const VAPID_KEY = 'BJL6cU0wIufsCXCj3_cj9Wix3xnmz79Sm4wI9PEkfgwX8LoinXoRBWe6qyTKHcS5RotU1JXRT6f7ICG92BEEdP4';
@@ -2040,6 +2202,7 @@ function showInAppNotification(title, body) {
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyBc-gHRicMQuv10CBSCZB2eOfQqshftCVo",
@@ -2053,7 +2216,8 @@ function showInAppNotification(title, body) {
     window._db      = firebase.firestore();
     window._reqCol  = window._db.collection('requests');
     window._messaging = firebase.messaging();
-    window._fsReady = true;
+    window._storage  = firebase.storage();
+    window._fsReady  = true;
     window.dispatchEvent(new Event('firebase-ready'));
   </script>
 </body>
