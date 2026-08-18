@@ -755,6 +755,7 @@
             <option>Agri Services</option>
             <option>Northern Tool</option>
             <option>Gintec</option>
+            <option>La Noria Irrigation</option>
             <option>Amazon</option>
             <option>Otra</option>
           </select>
@@ -867,6 +868,16 @@
         <input type="password" id="pin-confirm-input" maxlength="4" inputmode="numeric" placeholder="••••" style="letter-spacing:0.3em;text-align:center;">
       </div>
       <button class="submit-btn" style="margin-top:4px;" onclick="changeMyPin()">Cambiar PIN</button>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-title">Tiendas personalizadas</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Agrega tiendas adicionales que aparecerán en el formulario de solicitud.</p>
+      <div id="custom-stores-list"></div>
+      <div class="add-approver-row" style="margin-top:10px;">
+        <input type="text" id="new-store-input" placeholder="Nombre de la tienda">
+        <button class="add-btn" onclick="addCustomStore()">+ Agregar</button>
+      </div>
     </div>
 
     <div class="settings-card">
@@ -1040,6 +1051,7 @@
 // ============================================================
 let requests = [];
 let currentUser = null;
+let customStores = [];
 let approvers = [];
 const APPROVER_NAMES = ['Ramon','Jose','Reidel'];
 let currentFilter = 'all';
@@ -1061,6 +1073,10 @@ async function loadData() {
     if (a) approvers = JSON.parse(a);
     else approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel','Ariel'];
   } catch(e) { approvers = ['Ramon','Jose','Rolando','Pedro','Deurys','Wilson','Reidel','Ariel']; }
+  try {
+    const cs = localStorage.getItem('cf-custom-stores');
+    if (cs) customStores = JSON.parse(cs);
+  } catch(e) { customStores = []; }
   // PIN removed
 }
 
@@ -1263,7 +1279,7 @@ function renderDash() {
   const stores = {};
   visible.forEach(r => { stores[r.store] = (stores[r.store]||0) + 1; });
   const maxStore = Math.max(...Object.values(stores), 1);
-  const storeColors = { 'Home Depot':'#F4811F', 'Supply Eléctrico':'#1565C0', 'Green House Supply':'#2E7D32', 'Grainger':'#CC0000', 'Lovet Irrigation':'#00838F', 'B & K':'#6A1B9A', 'Agri Services':'#2E7D32', 'Northern Tool':'#BF360C', 'Gintec':'#1565C0', 'Amazon':'#FF9900', 'Otra':'#78909C' };
+  const storeColors = { 'Home Depot':'#F4811F', 'Supply Eléctrico':'#1565C0', 'Green House Supply':'#2E7D32', 'Grainger':'#CC0000', 'Lovet Irrigation':'#00838F', 'La Noria Irrigation':'#2E7D32', 'B & K':'#6A1B9A', 'Agri Services':'#2E7D32', 'Northern Tool':'#BF360C', 'Gintec':'#1565C0', 'Amazon':'#FF9900', 'Otra':'#78909C' };
   document.getElementById('dash-stores').innerHTML = Object.entries(stores)
     .sort((a,b) => b[1]-a[1])
     .map(([name, count]) => `
@@ -2165,6 +2181,74 @@ function showInAppNotification(title, body) {
 
 
 // ============================================================
+// CUSTOM STORES
+// ============================================================
+function addCustomStore() {
+  const val = document.getElementById('new-store-input').value.trim();
+  if (!val) return;
+  if (customStores.includes(val)) { showToast('Ya existe'); return; }
+  customStores.push(val);
+  saveCustomStores();
+  document.getElementById('new-store-input').value = '';
+  renderCustomStores();
+  updateStoreSelects();
+  showToast(`"${val}" agregada`);
+}
+
+function removeCustomStore(i) {
+  const name = customStores[i];
+  customStores.splice(i, 1);
+  saveCustomStores();
+  renderCustomStores();
+  updateStoreSelects();
+  showToast(`"${name}" eliminada`);
+}
+
+function saveCustomStores() {
+  try { localStorage.setItem('cf-custom-stores', JSON.stringify(customStores)); } catch(e) {}
+}
+
+function renderCustomStores() {
+  const el = document.getElementById('custom-stores-list');
+  if (!el) return;
+  if (!customStores.length) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--muted);">No hay tiendas personalizadas.</p>';
+    return;
+  }
+  el.innerHTML = customStores.map((s, i) => `
+    <div class="approver-row">
+      <div class="approver-name">${s}</div>
+      <button class="remove-btn" onclick="removeCustomStore(${i})">Eliminar</button>
+    </div>`).join('');
+}
+
+function updateStoreSelects() {
+  // Update all store selects with custom stores
+  ['f-store', 'edit-store'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    // Remove old custom options
+    Array.from(sel.options).forEach(opt => {
+      if (opt.dataset.custom === 'true') sel.remove(opt.index);
+    });
+    // Add custom stores before "Otra"
+    const otraIdx = Array.from(sel.options).findIndex(o => o.value === 'Otra');
+    customStores.forEach(store => {
+      const opt = document.createElement('option');
+      opt.value = store;
+      opt.textContent = store;
+      opt.dataset.custom = 'true';
+      if (otraIdx > 0) {
+        sel.insertBefore(opt, sel.options[otraIdx]);
+      } else {
+        sel.appendChild(opt);
+      }
+    });
+  });
+}
+
+
+// ============================================================
 // INIT
 // ============================================================
 (async () => {
@@ -2195,6 +2279,8 @@ function showInAppNotification(title, body) {
   } else {
     window.addEventListener('firebase-ready', initFirebase, { once: true });
   }
+  // Apply custom stores to selects
+  updateStoreSelects();
 })();
 </script>
 
